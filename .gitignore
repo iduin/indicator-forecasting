@@ -2,7 +2,9 @@
 labels/
 data/
 test/
+data_synth/
 test_synth/
+synth/
 trans/
 .venv/
 __pycache__/
