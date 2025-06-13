@@ -6,7 +6,6 @@ test_synth/
 trans/
 .venv/
 __pycache__/
-performances/
 
 # HTML files
 *.html
@@ -31,3 +30,4 @@ resnet_multilabel2.pth
 test_cnn.py
 baseline.html
 time_precision.ipynb
+image_processing.py
