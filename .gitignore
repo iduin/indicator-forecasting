@@ -17,3 +17,14 @@ pyproject.toml
 # Jupyter notebooks
 notebook.ipynb
 test.ipynb
+
+# Test files
+img.png
+loss_curve.png
+merged_common_sheets.xlsx
+merged_common_sheets2.xlsx
+merged_common_sheets3.xlsx
+output.xlsx
+output2.xlsx
+resnet_multilabel2.pth
+test_cnn.py
