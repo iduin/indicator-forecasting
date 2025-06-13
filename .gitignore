@@ -1,0 +1,19 @@
+# Folders to ignore
+labels/
+data/
+test/
+test_synth/
+trans/
+.venv/
+__pycache__/
+
+# HTML files
+*.html
+
+# Poetry config files
+poetry.lock
+pyproject.toml
+
+# Jupyter notebooks
+notebook.ipynb
+test.ipynb
