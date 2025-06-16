@@ -192,14 +192,14 @@ def plot_statistical_analysis (dataset, indics, name="Dataset") :
 
 
 if __name__ == "__main__" :
-    """labels_paths = ['train_labels.json','test_labels.json']
+    labels_paths = ['train_synth_labels.json','test_synth_labels.json']
 
-    data_folders = ['data', 'test']
+    data_folders = ['data_synth', 'test_synth']
 
     indics = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
 
     for labels_path, data_folder in zip(labels_paths, data_folders) :
-        label_data(data_folder, labels_path, indics)"""
+        label_data(data_folder, labels_path, indics)
     
     '''labels_paths = ['test_synth_labels.json']
 

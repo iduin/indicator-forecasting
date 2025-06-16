@@ -26,23 +26,26 @@ def test_labels_strong (labels_path, data_folder, raw_data_path, indics) :
             df_csv = pd.read_csv(csv_path)
             df_csv['Date'] = pd.to_datetime(df_csv['Date'])
             pred_date = df_csv['Date'].max()
-            df_raw = sheets_dicc[base_name.split('_')[0]]
+            df_raw = sheets_dicc[base_name.rsplit('_', 1)[0]]
+            if 'Date' not in df_raw.columns:
+                # Create a fake 'Date' column (e.g., today or a date range)
+                df_raw['Date'] = pd.date_range(start='2023-01-01', periods=len(df_raw), freq='D')
             df_raw['Date'] = pd.to_datetime(df_raw['Date'])
             valt_15 = df_raw[df_raw['Date'] == pd.to_datetime(pred_date)]
             pred_date_idx = valt_15.index
             valt = df_raw.iloc[pred_date_idx[0]-15]
             for i,indic in enumerate(indics) :
-                print(valt_15[indic], valt[indic], labels_dict[png_path][i])
+                #print(valt_15[indic], valt[indic], labels_dict[png_path][i])
                 if int((valt_15[indic] > valt[indic]).iloc[0]) != labels_dict[png_path][i] :
                     tqdm.write(f'Error at {png_path}, {indic}')
 
 
 if __name__ == "__main__":
-    labels_paths = ['train_labels.json','test_labels.json']
+    labels_paths = ['labels\\train_synth_labels.json','labels\\test_synth_labels.json']
 
-    data_folders = ['data', 'test']
+    data_folders = ['data_synth', 'test_synth']
 
-    raw_data_path = 'Base_Test_2500pts v-Louis.xlsx'
+    raw_data_path = 'Base_Test_2500pts avec Synthétiques.xlsx'
 
     indics = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
 

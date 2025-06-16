@@ -182,7 +182,8 @@ if __name__ == "__main__":
     create_graphs(file_name, 'test/', test_sheets, replace = True, test = True)"""
 
     file_name = "Base_Test_2500pts avec Synthétiques.xlsx"
-    test_synth_sheets = ['Ss1', 'Ss2', 'Ss3', 'Ss4', 'Ss5']
+    train_synth_sheets = ['EURUSDm1', 'EURUSDm5_p1', 'EURUSDh1_p1', 'CAC-40h4_p1', 'CAC-40d1_p1', 'Ss1', 'Ss2', 'Ss3']
+    test_synth_sheets = ['EURUSDm5_p2','EURUSDh1_p2', 'CAC-40h4_p2', 'CAC-40d1_p2', 'Ss4', 'Ss5']
 
-
+    create_graphs(file_name, 'data_synth/', train_synth_sheets, replace = False)
     create_graphs(file_name, 'test_synth/', test_synth_sheets, replace = False, test = True)
