@@ -12,10 +12,13 @@ from collections import Counter
 import seaborn as sns
 
 class TimeSeriesGraphDataset(Dataset):
-    def __init__(self, image_dir, labels_dict, transform=None):
+    def __init__(self, image_dir, labels_dict = None, transform=None):
         self.image_dir = image_dir
         self.labels_dict = labels_dict
-        self.image_names = list(labels_dict.keys())
+        if labels_dict is not None:
+            self.image_names = list(labels_dict.keys())
+        else:
+            self.image_names = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
         self.transform = transform
 
     def __len__(self):
@@ -26,15 +29,30 @@ class TimeSeriesGraphDataset(Dataset):
         img_path = os.path.join(self.image_dir, img_name)
         image = Image.open(img_path).convert("RGB")
 
-        csv_path = os.path.join(self.image_dir, img_name.split('.')[0]+'.csv')
-        df = pd.read_csv(csv_path)
-        date = df['Date'].max()
+        csv_path = os.path.join(self.image_dir, img_name.split('.')[0] + '.csv')
+        if os.path.exists(csv_path):
+            df = pd.read_csv(csv_path)
+            df.columns = [col.capitalize() for col in df.columns]
+            df['Date'] = pd.to_datetime(df['Date'])
+            if self.labels_dict is not None:
+                date = df['Date'].max().strftime('%Y-%m-%dT%H:%M:%S%z')
+                length = len(df)
+            else :
+                step = df['Date'].diff().mode()[0]
+                date = (df['Date'].max() + 15 * step).strftime('%Y-%m-%dT%H:%M:%S%z')
+                length = len(df) + 15
+        else:
+            date = None
+            length = 0
 
         if self.transform:
             image = self.transform(image)
 
-        label = torch.tensor(self.labels_dict[img_name], dtype=torch.float32)
-        return image, label, date, len(df), img_name
+        if self.labels_dict is not None:
+            label = torch.tensor(self.labels_dict[img_name], dtype=torch.float32)
+            return image, label, date, length, img_name
+        else:
+            return image, date, length, img_name
 
 def compute_mean_std(image_dir, img_size=256):
     transform = transforms.Compose([
@@ -58,9 +76,12 @@ def compute_mean_std(image_dir, img_size=256):
 
     return mean.tolist(), std.tolist()
 
-def get_dataloader(image_dir, labels_path, batch_size=32, shuffle=True, img_size=256, mean = None, std = None):
-    with open(labels_path, 'r') as f:
-        labels_dict = json.load(f)
+def get_dataloader(image_dir, labels_path = None, batch_size=32, shuffle=True, img_size=256, mean = None, std = None):
+    if labels_path:
+        with open(labels_path, 'r') as f:
+            labels_dict = json.load(f)
+    else:
+        labels_dict = None
 
     if not mean :
         mean = [0.485, 0.456, 0.406]

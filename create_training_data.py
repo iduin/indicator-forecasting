@@ -129,7 +129,7 @@ def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, 
         
         if 'Date' not in sheet.columns:
             # Create a fake 'Date' column (e.g., today or a date range)
-            sheet['Date'] = pd.date_range(start='2023-01-01', periods=len(sheet), freq='D')
+            sheet['Date'] = pd.date_range(start='2023-01-01 00:00:00', periods=len(sheet), freq='D')
         sheet['Date'] = pd.to_datetime(sheet['Date'])
         
         value_wished = ['Date', 'MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
