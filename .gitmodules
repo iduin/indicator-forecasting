@@ -1,0 +1,3 @@
+[submodule "external/tcopil2025"]
+	path = external/tcopil2025
+	url = https://github.com/thchateau/tcopil2025.git
