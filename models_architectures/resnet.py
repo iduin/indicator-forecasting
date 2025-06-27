@@ -7,6 +7,7 @@ import os
 from data_processing.dataset import get_train_val_loaders
 from data_processing.preprocessing import get_pos_weights
 from dotenv import load_dotenv
+from models_architectures.utils import load_model_safely
 
 class Resnet_18_Multilabel(torch.nn.Module) :
     def __init__(self, num_classes=6, weights=ResNet18_Weights.DEFAULT):
@@ -26,7 +27,8 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def load_model_resnet_18 (path, device = DEVICE) :
     model = Resnet_18_Multilabel()    
     model = model.to(device)
-    model.load_state_dict(torch.load(path, map_location=DEVICE))
+    state_dict  = torch.load(path, map_location=DEVICE)
+    model = load_model_safely(model, state_dict)
     model.eval()
     return model
 

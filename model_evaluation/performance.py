@@ -225,7 +225,7 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
             "y_true": y_true[:, i],
             "y_pred": y_pred[:, i]
         })
-        grouped = temp_df.groupby("len_bin")
+        grouped = temp_df.groupby("len_bin", observed=False)
         for bin_name, group in grouped:
             if len(group) == 0:
                 continue

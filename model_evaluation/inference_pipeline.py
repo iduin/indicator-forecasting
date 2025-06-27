@@ -11,7 +11,7 @@ from model_evaluation.inference import inference, combine_arrays_to_df
 from models_architectures.resnet import load_model_resnet_18
 from models_architectures.vit import load_model_VIT
 from models_architectures.squeezenet import load_model_squeezenet
-from models_architectures.utils import load_model_general
+from models_architectures.general import load_model_general
 
 from tqdm import tqdm
 import shutil

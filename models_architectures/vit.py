@@ -7,6 +7,7 @@ import os
 from data_processing.dataset import get_train_val_loaders
 from data_processing.preprocessing import get_pos_weights
 from dotenv import load_dotenv
+from models_architectures.utils import load_model_safely
 
 class CreatePatchesLayer(torch.nn.Module):
     """Custom PyTorch Layer to Extract Patches from Images."""
@@ -223,7 +224,8 @@ def load_model_VIT (path,
         device=device,
     )    
     model = model.to(device)
-    model.load_state_dict(torch.load(path, map_location=device))
+    state_dict  = torch.load(path, map_location=DEVICE)
+    model = load_model_safely(model, state_dict)
     model.eval()
     return model
 
