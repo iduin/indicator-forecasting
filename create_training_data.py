@@ -14,13 +14,18 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
+from preprocessing import ECDFScaler
 
-def plot_rgb(data, names, pixel_size=256, dpi=100):
+def plot_rgb(data, names, pixel_size=256, dpi=100, scaler = None):
     """
     Trace les séries par groupe de 3 en RGB, et sauvegarde une image exacte en pixels (ex: 256x256),
     en contrôlant la taille via figsize + dpi. Aucun buffer utilisé.
     """
     plt.style.use('dark_background')
+
+    if scaler is not None :
+        data = scaler.transform(data)
+
     num_groups = int(np.ceil(len(names) / 3))
 
     # Taille en pouces = pixels / dpi
@@ -34,11 +39,16 @@ def plot_rgb(data, names, pixel_size=256, dpi=100):
         colors = ['red', 'green', 'blue']
 
         for j, name in enumerate(group_names):
-            scaler = MinMaxScaler()
-            scaled = scaler.fit_transform(data[[name]])
+            if scaler is None:
+                local_scaler = MinMaxScaler()
+                scaled = local_scaler.fit_transform(data[[name]])
+            else:
+                scaled = data[[name]]
             ax.plot(scaled, color=colors[j], linewidth=1)
 
         ax.axis('off')
+        if scaler is not None:
+            ax.set_ylim(0, 1)
     
     return fig
 
@@ -100,12 +110,10 @@ def plot_one(data, names, size=256):
     return fig
    
 
-def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, min_size = 50, max_size = 300, pred = 15, graph_size = 256, replace = False, test = False):
+def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, min_size = 50, max_size = 300, pred = 15, graph_size = 256, replace = False, test = False, scaler = None, indics = []):
     # Read the excel file
     data = pd.ExcelFile(file_path)
     # get all sheet names
-    sheet_names = data.sheet_names
-    sheet_test = data.parse(sheet_names[0])
 
     if replace :
         for filename in os.listdir(base_folder):
@@ -118,7 +126,7 @@ def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, 
                     shutil.rmtree(file_path)  # Remove directory and its contents
             except Exception as e:
                 tqdm.write(f'Failed to delete {file_path}. Reason: {e}')
-        
+
     # Loop on all the sheets
     for sheet_name in sheets  : #sheet_names[:2]:
         sheet = data.parse(sheet_name)
@@ -132,9 +140,20 @@ def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, 
             sheet['Date'] = pd.date_range(start='2023-01-01 00:00:00', periods=len(sheet), freq='D')
         sheet['Date'] = pd.to_datetime(sheet['Date'])
         
-        value_wished = ['Date', 'MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
+        value_wished = ['Date'] + indics # , 'MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
         value_names = [x for x in value_wished if x in sheet.columns]
-        lvalues = sheet[value_names].iloc[60:].reset_index(drop=True)
+
+        mask = sheet.map(lambda x: pd.isna(x) or x == 0).any(axis=1)
+        # Find the index of the first row where NOT any value is NaN or 0
+        #lvalues = sheet[value_names].iloc[60:].reset_index(drop=True)
+        valid_mask = ~mask
+        if valid_mask.any():
+            first_valid_idx = mask[~mask].index[0]
+        else:
+            first_valid_idx = 0
+        lvalues = sheet[value_names].loc[first_valid_idx:].reset_index(drop=True)
+        lvalues.replace("#DIV/0!", np.nan, inplace=True)
+        lvalues.interpolate(method='linear', inplace=True)
 
         not_found_values = list(set(value_wished) - set(sheet.columns))
         for value_name in not_found_values : 
@@ -162,7 +181,7 @@ def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, 
 
             serie_crop = serie[:-pred]
 
-            fig = plot_rgb(serie_crop, [x for x in value_names if x != "Date"])            
+            fig = plot_rgb(serie_crop, [x for x in value_names if x != "Date"], scaler = scaler)            
 
             # Save the figure
             fig.savefig(base_folder + sheet_name + '_' + str(i) + '.png', dpi=100)
@@ -172,18 +191,21 @@ def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, 
 
 # Main
 if __name__ == "__main__":
-    """file_name = "Base_Test_2500pts v-Louis.xlsx"
+    file_name = "Base_Test_2500pts v-Louis.xlsx"
 
     # Create graphs for the data in the excel file
     train_sheets = ['BIIB', 'WMT', 'KO', 'CAT', 'BA', 'MMM', 'AAPL']
     test_sheets = ['HON', 'AMZN', 'NVDA', 'BAC', 'JPM', 'XOM', 'TSLA', 'NKE']
 
-    create_graphs(file_name, 'data/', train_sheets, replace = True)
-    create_graphs(file_name, 'test/', test_sheets, replace = True, test = True)"""
 
-    file_name = "Base_Test_2500pts avec Synthétiques.xlsx"
-    train_synth_sheets = ['EURUSDm1', 'EURUSDm5_p1', 'EURUSDh1_p1', 'CAC-40h4_p1', 'CAC-40d1_p1', 'Ss1', 'Ss2', 'Ss3']
-    test_synth_sheets = ['EURUSDm5_p2','EURUSDh1_p2', 'CAC-40h4_p2', 'CAC-40d1_p2', 'Ss4', 'Ss5']
+    #file_name = "Base_Test_2500pts avec Synthétiques.xlsx"
+    #train_synth_sheets = ['EURUSDm1', 'EURUSDm5_p1', 'EURUSDh1_p1', 'CAC-40h4_p1', 'CAC-40d1_p1', 'Ss1', 'Ss2', 'Ss3']
+    #test_synth_sheets = ['EURUSDm5_p2','EURUSDh1_p2', 'CAC-40h4_p2', 'CAC-40d1_p2', 'Ss4', 'Ss5']
 
-    create_graphs(file_name, 'data_synth/', train_synth_sheets, replace = False)
-    create_graphs(file_name, 'test_synth/', test_synth_sheets, replace = False, test = True)
+    indics = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
+
+    scaler = ECDFScaler()
+    scaler.fit_excel_sheets( file_name,sheet_names= train_sheets, names = indics)
+    
+    create_graphs(file_name, 'data_scaled/', train_sheets, replace = True, indics = indics, scaler=scaler)
+    create_graphs(file_name, 'test_scaled/', test_sheets, replace = True, test = True, indics = indics, scaler=scaler)

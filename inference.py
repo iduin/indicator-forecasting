@@ -2,7 +2,9 @@ import torch
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-from models import load_model_squeezenet, load_model_resnet_18, load_model_VIT
+from models_architectures.vit import load_model_VIT
+from models_architectures.resnet import load_model_resnet_18
+from models_architectures.squeezenet import load_model_squeezenet
 from dataset import get_dataloader, compute_mean_std
 import os
 import random
@@ -36,7 +38,6 @@ def inference(model, test_loader, indics=None, DEVICE=torch.device("cuda" if tor
     model.eval()
 
     all_labels = []
-    all_preds = []
     all_probs = []
     all_dates = []
     all_sheet = []
@@ -58,10 +59,8 @@ def inference(model, test_loader, indics=None, DEVICE=torch.device("cuda" if tor
             outputs = model(images)
 
             probs = outputs.cpu().numpy()
-            preds = (probs > 0.5).astype(int)
 
             all_probs.append(probs)
-            all_preds.append(preds)
 
             if has_labels:
                 all_labels.append(labels.cpu().numpy())
@@ -70,12 +69,22 @@ def inference(model, test_loader, indics=None, DEVICE=torch.device("cuda" if tor
             all_dates.append(", ".join(dt_utc.astype(str)))
             all_sheet.append(file[0].rsplit('_', 1)[0])
             all_lens.append(lens)
+    
+    
 
-    all_preds = np.vstack(all_preds)
-    all_probs = np.vstack(all_probs)
+        all_probs = np.vstack(all_probs)
     all_dates = np.array(all_dates).reshape(-1, 1)
     all_sheet = np.array(all_sheet).reshape(-1, 1)
     all_lens = np.hstack(all_lens).reshape(-1, 1)
+
+     # --- Check if sigmoid is needed ---
+    if isinstance(all_probs, torch.Tensor):
+        all_probs = all_probs.detach().cpu().numpy()
+
+    if np.max(all_probs) > 1.0 or np.min(all_probs) < 0.0:
+        all_probs = 1 / (1 + np.exp(-all_probs))
+    
+    all_preds = (all_probs > 0.5).astype(int)
 
     if all_labels:
         all_labels = np.vstack(all_labels)
@@ -160,7 +169,7 @@ if __name__ == '__main__' :
     RAW_DATA_PATH = 'Base_Test_2500pts avec Synthétiques.xlsx' #'Base_Test_2500pts v-Louis.xlsx'
 
     MODEL_DIR = 'model'
-    MODEL_FILE = 'squeeze_multilabel_synth.pth' #'VIT.pth'
+    MODEL_FILE = 'resnet_multilabel3_synth.pth' #'VIT.pth'
     MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -191,7 +200,7 @@ if __name__ == '__main__' :
     small_test_dataset = Subset(test_dataset, indices)
     small_test_loader = DataLoader(small_test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = load_model_squeezenet(MODEL_PATH, DEVICE)
+    model = load_model_resnet_18(MODEL_PATH, DEVICE)
 
     df = inference_merged_df(model, test_loader, indics, RAW_DATA_PATH, output_path = OUTPUT_PATH)
 

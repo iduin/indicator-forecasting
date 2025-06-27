@@ -3,13 +3,15 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import sys
 import os
-sys.path.append(os.path.abspath("external"))
-from tcopil2025.fmpapi import parse_args, get_fmp_data
-from tcopil2025.indicateurs import Indicator
+from external.tcopil2025.fmpapi import parse_args, get_fmp_data
+from external.tcopil2025.indicateurs import Indicator
 from create_training_data import plot_rgb
 from dataset import get_dataloader
 from inference import inference, combine_arrays_to_df
-from models import load_model_resnet_18, load_model_squeezenet, load_model_VIT
+from models_architectures.resnet import load_model_resnet_18
+from models_architectures.vit import load_model_VIT
+from models_architectures.squeezenet import load_model_squeezenet
+
 from tqdm import tqdm
 import shutil
 
@@ -165,7 +167,7 @@ if __name__ == '__main__' :
 
 
     MODEL_DIR = 'model'
-    MODEL_FILE = 'resnet_multilabel2.pth' #'VIT.pth'
+    MODEL_FILE = 'resnet_18_256_scaled_final.pth' #'VIT.pth'
     MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 
     symbol = 'AAPL'

@@ -12,11 +12,14 @@ from sklearn.metrics import (
 from inference import inference
 import torch
 from tqdm import tqdm
-from models import load_model_squeezenet
-from dataset import get_dataloader
+from models_architectures.vit import load_model_VIT
+from models_architectures.resnet import load_model_resnet_18
+from models_architectures.squeezenet import load_model_squeezenet
+from dataset import get_dataloader, get_train_val_loaders
 import os
 import random
 from torch.utils.data import DataLoader, Subset
+from dotenv import load_dotenv
 
 sns.set(style="whitegrid")
 
@@ -200,9 +203,9 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
         row = 1 + i // 3
         col = i % 3
         ax_cm = fig.add_subplot(grid[1, i])
-        cm = confusion_matrix(y_true[:, i], y_pred[:, i])
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, ax=ax_cm,
-                    annot_kws={"fontsize": 10})
+        cm = confusion_matrix(y_true[:, i], y_pred[:, i], normalize= 'pred')
+        sns.heatmap(cm, annot=True, fmt=".2f", cmap="Blues", cbar=False, ax=ax_cm,
+                    annot_kws={"fontsize": 10}, vmin=0, vmax=1)
         ax_cm.set_title(label_names[i], fontsize=13)
         ax_cm.set_xlabel("Predicted", fontsize=10)
         ax_cm.set_ylabel("Actual", fontsize=10)
@@ -251,26 +254,47 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
 
 if __name__ == "__main__" :
 
-    TRAIN_DIR = "data/"
-    TEST_DIR = "test/"
-    TEST_SYNTH_DIR = 'test_synth/'
-
-    LABELS_DIR = "labels"
-    TRAIN_LABEL_FILE = "train_labels.json"
-    TEST_LABEL_FILE = "test_labels.json"
-    TEST_SYNTH_LABEL_FILE = "test_synth_labels.json"
-    TRAIN_LABEL_PATH = os.path.join(LABELS_DIR, TRAIN_LABEL_FILE)
-    TEST_LABEL_PATH = os.path.join(LABELS_DIR, TEST_LABEL_FILE)
-    TEST_SYNTH_LABEL_PATH = os.path.join(LABELS_DIR, TEST_SYNTH_LABEL_FILE)
-
-    TRAIN_BATCH_SIZE = 32
-    TEST_BATCH_SIZE = 1
-
+    load_dotenv()
 
     DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    DATA_DIR = os.getenv("DATA_DIR")
+
+    TYPE_OF_DATA = "scaled"
+    
+    if TYPE_OF_DATA == "" :
+        str_to_add = ""
+    else :
+        str_to_add = "_" + TYPE_OF_DATA
+
+    TRAIN_DIR = os.path.join(DATA_DIR, "train" + str_to_add + "/")
+    TEST_DIR = os.path.join(DATA_DIR, "test" + str_to_add + "/")
+
+    LABELS_DIR = "labels"
+    TRAIN_LABEL_FILE = "train"+ str_to_add +"_labels.json"
+    TEST_LABEL_FILE = "test"+ str_to_add +"_labels.json"
+    TRAIN_LABEL_PATH = os.path.join(LABELS_DIR, TRAIN_LABEL_FILE)
+    TEST_LABEL_PATH = os.path.join(LABELS_DIR, TEST_LABEL_FILE)
+
+    BATCH_SIZE = 32
+
+    INDICS = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']    
+
+    LEARNING_RATE = 0.0001
+    WEIGHT_DECAY = 0.0001
+    BATCH_SIZE = 32
+    NUM_EPOCHS = 100
+    IMAGE_SIZE = 256
+    PATCH_SIZE = 6
+    NUM_PATCHES = (IMAGE_SIZE // PATCH_SIZE) ** 2
+    PROJECTION_DIM = 64
+    NUM_HEADS = 4
+    TRANSFORMER_LAYERS = 8
+    MLP_HEAD_UNITS = [2048, 1024]
+
+
     MODEL_DIR = 'model'
-    MODEL_NAME = 'squeezenet_multilabel'
+    MODEL_NAME = 'squeezenet_' + str(IMAGE_SIZE) + str_to_add +  "_final"
     MODEL_FILE = MODEL_NAME + '.pth'
     MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 
@@ -278,23 +302,15 @@ if __name__ == "__main__" :
     PERF_FILE = MODEL_NAME + '.png'
     PERF_PATH = os.path.join(PERF_DIR, PERF_FILE)
 
-    INDICS = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
 
-    test_loader, test_dataset = get_dataloader(TEST_DIR, TEST_LABEL_PATH, TEST_BATCH_SIZE, shuffle = False)
+    train_loader, train_dataset, test_loader, test_dataset = get_train_val_loaders(train_image_dir = TRAIN_DIR, train_labels_path = TRAIN_LABEL_PATH, test_image_dir = TEST_DIR, test_labels_path = TEST_LABEL_PATH, train_batch_size=BATCH_SIZE, img_size=IMAGE_SIZE, adapt_scaling = True)
 
-    # Create a smaller test subset
-    subset_size = 2500
-    assert subset_size <= len(test_dataset), "Subset size exceeds size of test dataset"
 
-    # Random sample without replacement
-    random.seed(42)
-    indices = random.sample(range(len(test_dataset)), subset_size)
-
-    # Wrap in Subset and new DataLoader
-    small_test_dataset = Subset(test_dataset, indices)
-    small_test_loader = DataLoader(small_test_dataset, batch_size=TEST_BATCH_SIZE, shuffle=False)
+    
 
     model = load_model_squeezenet(MODEL_PATH, DEVICE)
-    all_labels, all_preds, all_probs, _, all_lens, _ = inference (model, small_test_loader, INDICS, DEVICE)
+    all_labels, all_preds, all_probs, _, all_lens, _ = inference (model, test_loader, INDICS, DEVICE)
+
+    print(all_probs)
 
     plot_full_evaluation_dashboard(all_labels, all_preds, all_probs, all_lens, INDICS, save_path = PERF_PATH)

@@ -1,5 +1,5 @@
 import torch
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset, DataLoader, Subset
 import pandas as pd
 import os
 from PIL import Image
@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from collections import Counter
 import seaborn as sns
+import random
 
 class TimeSeriesGraphDataset(Dataset):
     def __init__(self, image_dir, labels_dict = None, transform=None):
@@ -100,6 +101,24 @@ def get_dataloader(image_dir, labels_path = None, batch_size=32, shuffle=True, i
 
     return dataloader, dataset
 
+def get_train_val_loaders(train_image_dir, train_labels_path, test_image_dir, test_labels_path = None, train_batch_size=32, img_size=256, adapt_scaling = False, val_set_ratio = 0.25):
+
+    if adapt_scaling :
+        mean, std = compute_mean_std(train_image_dir, img_size= img_size)
+    else :
+        mean, std = None, None
+
+    train_loader, train_set = get_dataloader(train_image_dir, labels_path = train_labels_path, batch_size=train_batch_size, shuffle=True, img_size=img_size, mean = mean, std = std)
+    _, test_set = get_dataloader(test_image_dir, labels_path = test_labels_path, batch_size = 1, shuffle=False, img_size=img_size, mean = mean, std = std)
+
+    val_set_size = int(len(train_set) * val_set_ratio)
+    indices = random.sample(range(len(test_set)), val_set_size)
+    val_set = Subset(test_set, indices)
+    val_loader = DataLoader(val_set, batch_size=1, shuffle=False)
+
+    return train_loader, train_set, val_loader, val_set
+
+
 def label_data (image_dir, labels_path, indics) :
     # Initialize label dictionary
     labels = {}
@@ -142,16 +161,38 @@ def label_data (image_dir, labels_path, indics) :
 
     print(f"Saved labels for {len(labels)} images to {labels_path}")
 
-def analyze_indicator_labels(dataset):
+def analyze_indicator_labels(data):
 
-    total_samples = len(dataset)
+    """
+    Analyze labels for a multi-label classification task.
     
+    Args:
+        data: Either a PyTorch Dataset (returning label tensors) 
+              OR a NumPy array / PyTorch tensor of shape (N, 6)
+    
+    Returns:
+        total_samples, label_matrix, indicator_counts, indicator_percentages,
+        labels_per_sample, multi_label_dist, multi_label_percent
+    """
     label_matrix = []
 
-    for _, label_tensor, *_ in tqdm(dataset):
-        label_matrix.append(label_tensor.numpy())
+    # Case 1: Dataset
+    if hasattr(data, '__getitem__') and not isinstance(data, (np.ndarray, torch.Tensor)):
+        for sample in tqdm(data, desc="Extracting labels from dataset"):
+            label_tensor = sample[1]  # Assumes label is second item
+            label_matrix.append(label_tensor.numpy())
+        label_matrix = np.stack(label_matrix)
 
-    label_matrix = np.stack(label_matrix)  # shape: (N, 6)
+    # Case 2: Array or tensor
+    else:
+        if isinstance(data, torch.Tensor):
+            label_matrix = data.cpu().numpy()
+        elif isinstance(data, np.ndarray):
+            label_matrix = data
+        else:
+            raise TypeError("Unsupported type. Expected Dataset, NumPy array, or Torch tensor.")
+
+    total_samples = label_matrix.shape[0]
 
     # 1. Count how often each indicator increased
     indicator_counts = label_matrix.sum(axis=0).astype(int)
@@ -165,10 +206,10 @@ def analyze_indicator_labels(dataset):
     return total_samples, label_matrix, indicator_counts, indicator_percentages, labels_per_sample, multi_label_dist, multi_label_percent
 
 
-def plot_statistical_analysis (dataset, indics, name="Dataset") :
+def plot_statistical_analysis (data, indics, name="Dataset") :
     print(f"\n📊 {name} - Statistical Label Analysis")
 
-    total_samples, label_matrix, indicator_counts, indicator_percentages, _, multi_label_dist, multi_label_percent = analyze_indicator_labels(dataset)
+    total_samples, label_matrix, indicator_counts, indicator_percentages, _, multi_label_dist, multi_label_percent = analyze_indicator_labels(data)
 
     print(f"Total samples: {total_samples}")
 
@@ -213,9 +254,9 @@ def plot_statistical_analysis (dataset, indics, name="Dataset") :
 
 
 if __name__ == "__main__" :
-    labels_paths = ['train_synth_labels.json','test_synth_labels.json']
+    labels_paths = ['labels\\train_scaled_labels.json','labels\\test_scaled_labels.json']
 
-    data_folders = ['data_synth', 'test_synth']
+    data_folders = ['data_scaled', 'data_scaled']
 
     indics = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
 
