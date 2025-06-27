@@ -4,8 +4,8 @@ from typing import Type
 
 from models_architectures.training import train_network, plot_loss
 import os
-from dataset import get_train_val_loaders
-from preprocessing import get_pos_weights
+from data_processing.dataset import get_train_val_loaders
+from data_processing.preprocessing import get_pos_weights
 from dotenv import load_dotenv
 
 class CreatePatchesLayer(torch.nn.Module):

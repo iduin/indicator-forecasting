@@ -5,12 +5,13 @@ import sys
 import os
 from external.tcopil2025.fmpapi import parse_args, get_fmp_data
 from external.tcopil2025.indicateurs import Indicator
-from create_training_data import plot_rgb
-from dataset import get_dataloader
-from inference import inference, combine_arrays_to_df
+from data_processing.create_training_data import plot_rgb
+from data_processing.dataset import get_dataloader
+from model_evaluation.inference import inference, combine_arrays_to_df
 from models_architectures.resnet import load_model_resnet_18
 from models_architectures.vit import load_model_VIT
 from models_architectures.squeezenet import load_model_squeezenet
+from models_architectures.utils import load_model_general
 
 from tqdm import tqdm
 import shutil
@@ -172,6 +173,6 @@ if __name__ == '__main__' :
 
     symbol = 'AAPL'
 
-    model = load_model_resnet_18(MODEL_PATH) # model = load_model_squeezenet(MODEL_PATH) # model = load_model_VIT(MODEL_PATH)
+    model = load_model_general(MODEL_PATH) # model = load_model_squeezenet(MODEL_PATH) # model = load_model_VIT(MODEL_PATH)
 
     print(inference_pipeline(model, n_avg= 5))

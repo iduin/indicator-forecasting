@@ -9,13 +9,13 @@ from sklearn.metrics import (
     confusion_matrix,
     f1_score
 )
-from inference import inference
+from model_evaluation.inference import inference
 import torch
 from tqdm import tqdm
 from models_architectures.vit import load_model_VIT
 from models_architectures.resnet import load_model_resnet_18
 from models_architectures.squeezenet import load_model_squeezenet
-from dataset import get_dataloader, get_train_val_loaders
+from data_processing.dataset import get_dataloader, get_train_val_loaders
 import os
 import random
 from torch.utils.data import DataLoader, Subset

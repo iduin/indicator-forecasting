@@ -5,7 +5,7 @@ import pandas as pd
 from models_architectures.vit import load_model_VIT
 from models_architectures.resnet import load_model_resnet_18
 from models_architectures.squeezenet import load_model_squeezenet
-from dataset import get_dataloader, compute_mean_std
+from data_processing.dataset import get_dataloader, compute_mean_std
 import os
 import random
 from torch.utils.data import Subset, DataLoader

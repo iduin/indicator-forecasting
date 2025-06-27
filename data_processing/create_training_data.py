@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
-from preprocessing import ECDFScaler
+from data_processing.preprocessing import ECDFScaler
 
 def plot_rgb(data, names, pixel_size=256, dpi=100, scaler = None):
     """
