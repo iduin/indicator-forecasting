@@ -12,6 +12,9 @@ from models_architectures.resnet import load_model_resnet_18
 from models_architectures.vit import load_model_VIT
 from models_architectures.squeezenet import load_model_squeezenet
 from models_architectures.general import load_model_general
+from data_processing.preprocessing import ECDFScaler
+from dotenv import load_dotenv
+import os
 
 from tqdm import tqdm
 import shutil
@@ -86,7 +89,7 @@ def aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, al
     return final_labels, recalculated_preds, averaged_probs, final_dates, final_lens, final_sheets
 
 
-def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min', indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci'], APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder = 'temp_data', clean = True) :
+def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min', indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci'], scaler = None, APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder = 'temp_data', clean = True) :
     
     if clean :
         for filename in os.listdir(temp_folder):
@@ -122,7 +125,7 @@ def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min', i
         csv_path = os.path.join(temp_folder, symbol + f"_{i}.csv")
 
         img_df = draw_data(df, csv_path)
-        img = plot_rgb(img_df, indics)
+        img = plot_rgb(img_df, indics, scaler= scaler)
         img.savefig(img_path, dpi=100)
         plt.close(img)
         
@@ -166,13 +169,19 @@ def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min', i
 
 if __name__ == '__main__' :
 
+    load_dotenv()
 
-    MODEL_DIR = 'model'
+    SCALER_DIR = os.getenv('SCALER_DIR')
+    
+    scaler = ECDFScaler.load(os.path.join("ecdf_scaler.pkl"))
+
+    MODEL_DIR = os.getenv('MODEL_DIR')
     MODEL_FILE = 'resnet_18_256_scaled_final.pth' #'VIT.pth'
     MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
+
 
     symbol = 'AAPL'
 
     model = load_model_general(MODEL_PATH) # model = load_model_squeezenet(MODEL_PATH) # model = load_model_VIT(MODEL_PATH)
 
-    print(inference_pipeline(model, n_avg= 5))
+    print(inference_pipeline(model, n_avg= 5, scaler = scaler))

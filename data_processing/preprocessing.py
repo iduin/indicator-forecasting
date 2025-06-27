@@ -3,6 +3,10 @@ import pandas as pd
 from scipy.interpolate import interp1d
 import torch
 from tqdm import tqdm
+import pickle
+from dotenv import load_dotenv
+import os
+from utils import load_json_list
 
 class ECDFScaler:
     def __init__(self):
@@ -58,6 +62,15 @@ class ECDFScaler:
 
         combined_df = pd.concat(all_data, ignore_index=True)
         self.fit(combined_df)
+    
+    def save(self, filepath):
+        with open(filepath, 'wb') as f:
+            pickle.dump(self, f)
+
+    @staticmethod
+    def load(filepath):
+        with open(filepath, 'rb') as f:
+            return pickle.load(f)
 
 
 def get_pos_weights (train_loader, device = torch.device("cuda" if torch.cuda.is_available() else "cpu")) :
@@ -82,3 +95,24 @@ def get_pos_weights (train_loader, device = torch.device("cuda" if torch.cuda.is
     pos_weights = pos_weights.to(torch.float32).to(device)
 
     return pos_weights
+
+if __name__ == '__main__' :
+
+    load_dotenv()
+
+    SCALER_DIR = os.getenv('SCALER_DIR')
+    INDICS = load_json_list("INDICS")
+    train_sheets = load_json_list("TRAIN_SHEETS")
+    train_synth_sheets = load_json_list("TRAIN_SYNTH_SHEETS")
+
+    excel = 'Base_Test_2500pts v-Louis.xlsx'
+    excel_synth = 'Base_Test_2500pts avec Synthétiques.xlsx'
+
+    scaler = ECDFScaler()
+    scaler.fit_excel_sheets(excel, sheet_names=train_sheets, names = INDICS)
+    scaler.save(os.path.join(SCALER_DIR,"ecdf_scaler.pkl"))
+
+    scaler_synth = ECDFScaler()
+    scaler_synth.fit_excel_sheets(excel_synth, sheet_names=train_synth_sheets, names = INDICS)
+    scaler.save(os.path.join(SCALER_DIR,"ecdf_scaler_synth.pkl"))
+
