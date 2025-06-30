@@ -6,7 +6,7 @@ from tqdm import tqdm
 import pickle
 from dotenv import load_dotenv
 import os
-from utils import load_json_list
+from loadenv import load_json_list
 
 class ECDFScaler:
     def __init__(self):

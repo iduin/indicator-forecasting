@@ -284,7 +284,7 @@ if __name__ == "__main__" :
     WEIGHT_DECAY = 0.0001
     BATCH_SIZE = 32
     NUM_EPOCHS = 100
-    IMAGE_SIZE = 256
+    IMAGE_SIZE = 128
     PATCH_SIZE = 6
     NUM_PATCHES = (IMAGE_SIZE // PATCH_SIZE) ** 2
     PROJECTION_DIM = 64
@@ -294,7 +294,7 @@ if __name__ == "__main__" :
 
 
     MODEL_DIR = 'model'
-    MODEL_NAME = 'squeezenet_' + str(IMAGE_SIZE) + str_to_add +  "_final"
+    MODEL_NAME = 'vit_' + str(IMAGE_SIZE) + str_to_add +  "_final"
     MODEL_FILE = MODEL_NAME + '.pth'
     MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 
@@ -308,7 +308,7 @@ if __name__ == "__main__" :
 
     
 
-    model = load_model_squeezenet(MODEL_PATH, DEVICE)
+    model = load_model_VIT(MODEL_PATH, DEVICE)
     all_labels, all_preds, all_probs, _, all_lens, _ = inference (model, test_loader, INDICS, DEVICE)
 
     print(all_probs)

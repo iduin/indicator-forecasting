@@ -199,9 +199,54 @@ class ViTMultiLabelClassifierModel(torch.nn.Module):
       logits = self.logits_layer(x)
       return logits #self.sigmoid(logits)  # Raw logits for BCEWithLogitsLoss
 
+def infer_vit_config(state_dict):
+    config = {}
+    
+    # Position embedding: [num_patches, embed_dim]
+    pos_emb_shape = state_dict["patch_embedding_layer.position_emb.weight"].shape
+    config["num_patches"] = pos_emb_shape[0] - 1
+    config["embed_dim"] = pos_emb_shape[1]
+
+    # Feedforward dim from FFN layer
+    config["feed_forward_dim"] = state_dict["transformer_layers.0.ffn.0.0.weight"].shape[0]
+
+    # Infer number of transformer layers
+    config["num_transformer_layers"] = len({
+        k.split('.')[1]
+        for k in state_dict
+        if k.startswith("transformer_layers.")
+    })
+
+    # Optional: you may try to infer num_heads if possible (harder reliably)
+    config["num_heads"] = 4  # fallback default or custom logic if known
+
+    return config
+
+
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def load_model_VIT (path, 
+
+def load_model_VIT(path, device=DEVICE):
+    state_dict = torch.load(path, map_location=device)
+
+    config = infer_vit_config(state_dict)
+
+    # Fixed values or inferred if you can later
+    config["patch_size"] = 6
+    config["mlp_head_units"] = [2048, 1024]
+    config["num_classes"] = 6
+    config["device"] = device
+
+    # Instantiate model
+    model = ViTMultiLabelClassifierModel(**config).to(device)
+
+    # Load state dict
+    model = load_model_safely(model, state_dict)
+    model.eval()
+    return model
+
+
+'''def load_model_VIT (path, 
               device = DEVICE,
               num_transformer_layers=8,
               embed_dim=64,
@@ -215,7 +260,7 @@ def load_model_VIT (path,
     model = ViTMultiLabelClassifierModel(
         num_transformer_layers=num_transformer_layers,
         embed_dim=embed_dim,
-        feed_forward_dim=feed_forward_dim * 2,
+        feed_forward_dim=feed_forward_dim,
         num_heads=num_heads,
         patch_size=patch_size,
         num_patches=num_patches,
@@ -227,7 +272,7 @@ def load_model_VIT (path,
     state_dict  = torch.load(path, map_location=DEVICE)
     model = load_model_safely(model, state_dict)
     model.eval()
-    return model
+    return model'''
 
 
 if __name__ == '__main__' :
@@ -238,7 +283,7 @@ if __name__ == '__main__' :
 
     DATA_DIR = os.getenv("DATA_DIR")
 
-    TYPE_OF_DATA = "scaled"
+    TYPE_OF_DATA = "synth_scaled"
     
     if TYPE_OF_DATA == "" :
         str_to_add = ""
@@ -304,6 +349,7 @@ if __name__ == '__main__' :
     )
     loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weights)
 
+    print(f"Training of {MODEL_PATH}")
     history = train_network(
         model=model,
         num_epochs=NUM_EPOCHS,

@@ -45,7 +45,7 @@ if __name__ == '__main__' :
 
     DATA_DIR = os.getenv("DATA_DIR")
 
-    TYPE_OF_DATA = "scaled"
+    TYPE_OF_DATA = "synth_scaled"
     
     if TYPE_OF_DATA == "" :
         str_to_add = ""
@@ -55,7 +55,7 @@ if __name__ == '__main__' :
     TRAIN_DIR = os.path.join(DATA_DIR, "train" + str_to_add + "/")
     TEST_DIR = os.path.join(DATA_DIR, "test" + str_to_add + "/")
 
-    LABELS_DIR = "labels"
+    LABELS_DIR = os.getenv("LABELS_DIR")
     TRAIN_LABEL_FILE = "train"+ str_to_add +"_labels.json"
     TEST_LABEL_FILE = "test"+ str_to_add +"_labels.json"
     TRAIN_LABEL_PATH = os.path.join(LABELS_DIR, TRAIN_LABEL_FILE)

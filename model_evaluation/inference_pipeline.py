@@ -89,7 +89,7 @@ def aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, al
     return final_labels, recalculated_preds, averaged_probs, final_dates, final_lens, final_sheets
 
 
-def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min', indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci'], scaler = None, APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder = 'temp_data', clean = True) :
+def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min',img_size = 256 , indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci'], scaler = None, APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder = 'temp_data', clean = True) :
     
     if clean :
         for filename in os.listdir(temp_folder):
@@ -129,7 +129,7 @@ def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min', i
         img.savefig(img_path, dpi=100)
         plt.close(img)
         
-    loader, _  = get_dataloader(temp_folder, batch_size = 1)
+    loader, _  = get_dataloader(temp_folder, batch_size = 1, img_size= img_size)
 
     all_labels, all_preds, all_probs, all_dates, all_lens, all_sheet = inference(model, loader)
 
@@ -176,7 +176,7 @@ if __name__ == '__main__' :
     scaler = ECDFScaler.load(os.path.join("ecdf_scaler.pkl"))
 
     MODEL_DIR = os.getenv('MODEL_DIR')
-    MODEL_FILE = 'resnet_18_256_scaled_final.pth' #'VIT.pth'
+    MODEL_FILE = 'VIT_128_scaled_final.pth'#'resnet_18_256_scaled_final.pth' #'VIT.pth'
     MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 
 
@@ -184,4 +184,4 @@ if __name__ == '__main__' :
 
     model = load_model_general(MODEL_PATH) # model = load_model_squeezenet(MODEL_PATH) # model = load_model_VIT(MODEL_PATH)
 
-    print(inference_pipeline(model, n_avg= 5, scaler = scaler))
+    print(inference_pipeline(model, n_avg= 5, scaler = scaler, img_size= 128))

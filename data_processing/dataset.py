@@ -254,9 +254,14 @@ def plot_statistical_analysis (data, indics, name="Dataset") :
 
 
 if __name__ == "__main__" :
-    labels_paths = ['labels\\train_scaled_labels.json','labels\\test_scaled_labels.json']
 
-    data_folders = ['data_scaled', 'data_scaled']
+    DATA_DIR = "data"
+
+    LABEL_DIR = "labels"
+
+    labels_paths = [os.path.join(LABEL_DIR,'train_synth_scaled_labels.json'),os.path.join(LABEL_DIR,'test_synth_scaled_labels.json')]
+
+    data_folders = [os.path.join(DATA_DIR,'train_synth_scaled'), os.path.join(DATA_DIR,'test_synth_scaled')]
 
     indics = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
 

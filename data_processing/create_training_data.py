@@ -15,6 +15,8 @@ import pandas as pd
 import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from data_processing.preprocessing import ECDFScaler
+from dotenv import load_dotenv
+
 
 def plot_rgb(data, names, pixel_size=256, dpi=100, scaler = None):
     """
@@ -184,28 +186,35 @@ def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, 
             fig = plot_rgb(serie_crop, [x for x in value_names if x != "Date"], scaler = scaler)            
 
             # Save the figure
-            fig.savefig(base_folder + sheet_name + '_' + str(i) + '.png', dpi=100)
+            fig.savefig(os.path.join(base_folder, sheet_name + '_' + str(i) + '.png'), dpi=100)
             plt.close(fig)
             # in a xlsx
-            serie.to_csv(base_folder + sheet_name + '_' + str(i) + '.csv', index=False)
+            serie.to_csv(os.path.join(base_folder, sheet_name + '_' + str(i) + '.csv'), index=False)
 
 # Main
 if __name__ == "__main__":
-    file_name = "Base_Test_2500pts v-Louis.xlsx"
+    load_dotenv ()
+    #file_name = "Base_Test_2500pts v-Louis.xlsx"
 
     # Create graphs for the data in the excel file
-    train_sheets = ['BIIB', 'WMT', 'KO', 'CAT', 'BA', 'MMM', 'AAPL']
-    test_sheets = ['HON', 'AMZN', 'NVDA', 'BAC', 'JPM', 'XOM', 'TSLA', 'NKE']
+    #train_sheets = ['BIIB', 'WMT', 'KO', 'CAT', 'BA', 'MMM', 'AAPL']
+    #test_sheets = ['HON', 'AMZN', 'NVDA', 'BAC', 'JPM', 'XOM', 'TSLA', 'NKE']
 
 
-    #file_name = "Base_Test_2500pts avec Synthétiques.xlsx"
-    #train_synth_sheets = ['EURUSDm1', 'EURUSDm5_p1', 'EURUSDh1_p1', 'CAC-40h4_p1', 'CAC-40d1_p1', 'Ss1', 'Ss2', 'Ss3']
-    #test_synth_sheets = ['EURUSDm5_p2','EURUSDh1_p2', 'CAC-40h4_p2', 'CAC-40d1_p2', 'Ss4', 'Ss5']
+    file_name = "Base_Test_2500pts avec Synthétiques.xlsx"
+    train_synth_sheets = ['EURUSDm1', 'EURUSDm5_p1', 'EURUSDh1_p1', 'CAC-40h4_p1', 'CAC-40d1_p1', 'Ss1', 'Ss2', 'Ss3']
+    test_synth_sheets = ['EURUSDm5_p2','EURUSDh1_p2', 'CAC-40h4_p2', 'CAC-40d1_p2', 'Ss4', 'Ss5']
 
     indics = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
 
-    scaler = ECDFScaler()
-    scaler.fit_excel_sheets( file_name,sheet_names= train_sheets, names = indics)
+    SCALER_DIR = os.getenv('SCALER_DIR')
     
-    create_graphs(file_name, 'data_scaled/', train_sheets, replace = True, indics = indics, scaler=scaler)
-    create_graphs(file_name, 'test_scaled/', test_sheets, replace = True, test = True, indics = indics, scaler=scaler)
+    scaler = ECDFScaler.load(os.path.join("ecdf_scaler_synth.pkl"))
+
+    DATA_DIR = os.getenv('DATA_DIR')
+
+    TRAIN_DIR = os.path.join(DATA_DIR, "train_synth_scaled")
+    TEST_DIR = os.path.join(DATA_DIR, "test_synth_scaled")
+    
+    create_graphs(file_name, TRAIN_DIR, train_synth_sheets, replace = True, indics = indics, scaler=scaler)
+    create_graphs(file_name, TEST_DIR, test_synth_sheets, replace = True, test = True, indics = indics, scaler=scaler)
