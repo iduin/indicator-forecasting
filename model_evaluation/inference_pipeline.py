@@ -210,7 +210,7 @@ def extract_config (model_path) :
     if 'synth' in model_path :
         data_type += "_synth"
     if 'scaled' in model_path :
-        scaler = ECDFScaler.load(os.path.join("ecdf_scaler" + data_type + ".pkl"))
+        scaler = ECDFScaler.load(os.path.join(SCALER_DIR,"ecdf_scaler" + data_type + ".pkl"))
         data_type += "_scaled"
     else :
         scaler = None
@@ -238,7 +238,7 @@ if __name__ == '__main__' :
 
     SCALER_DIR = os.getenv('SCALER_DIR')
     
-    scaler = ECDFScaler.load(os.path.join("ecdf_scaler.pkl"))
+    scaler = ECDFScaler.load(os.path.join(SCALER_DIR, "ecdf_scaler.pkl"))
 
     MODEL_DIR = os.getenv('MODEL_DIR')
     model_files = [
