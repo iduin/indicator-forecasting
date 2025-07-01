@@ -140,7 +140,8 @@ def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, 
     return inference(model, loader)
 
 def inference_pipeline(model_paths, symbol="AAPL", interval="30min", n_avg=5,
-                       indics=None, APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder="temp_data", clean = True):
+                       indics=None, APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder="temp_data", clean = True, 
+                       model_paths_not_normalized = ["resnet_multilabel2.pth","resnet_multilabel3_synth.pth","resnet_multilabel_synth.pth","VIT3_72_synth.pth","vit_72_synth.pth"]):
     
     if clean :
         clean_folder(temp_folder)
@@ -154,7 +155,11 @@ def inference_pipeline(model_paths, symbol="AAPL", interval="30min", n_avg=5,
                              n_avg=n_avg, APIKEY=APIKEY, temp_folder=temp_folder)
 
     for model_path in model_paths:
-        config = extract_config(model_path)        
+        config = extract_config(model_path)
+
+        if model_path in model_paths_not_normalized :
+            config["mean"] = None
+            config["std"] = None
 
         labels, preds, probs, dates, lens, sheet = infer_model_on_prepared_data(**config)
         
@@ -201,7 +206,7 @@ def inference_pipeline(model_paths, symbol="AAPL", interval="30min", n_avg=5,
 
 
 
-def extract_config (model_path) :
+def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR')) :
     config = {}
     model = load_model_general(model_path)
     config["model"] = model
@@ -210,7 +215,7 @@ def extract_config (model_path) :
     if 'synth' in model_path :
         data_type += "_synth"
     if 'scaled' in model_path :
-        scaler = ECDFScaler.load(os.path.join(SCALER_DIR,"ecdf_scaler" + data_type + ".pkl"))
+        scaler = ECDFScaler.load(os.path.join(scaler_dir,"ecdf_scaler" + data_type + ".pkl"))
         data_type += "_scaled"
     else :
         scaler = None
@@ -233,6 +238,15 @@ def extract_config (model_path) :
 
 
 if __name__ == '__main__' :
+    
+    model_paths_not_normalized = [  # Liste des models dont les images n'ont pas été normalisés  ######################### GARDER CETTE LISTE ###########################
+        "resnet_multilabel.pth",
+        "resnet_multilabel2.pth",
+        "resnet_multilabel3_synth.pth",
+        "resnet_multilabel_synth.pth",
+        "VIT3_72_synth.pth",
+        "vit_72_synth.pth"
+    ]
 
     load_dotenv()
 
@@ -242,9 +256,9 @@ if __name__ == '__main__' :
 
     MODEL_DIR = os.getenv('MODEL_DIR')
     model_files = [
-        'VIT_128_scaled_final.pth',
         'resnet_18_256_scaled_final.pth',
+        'VIT3_72_synth.pth',
     ]
     model_paths = [os.path.join(MODEL_DIR, f) for f in model_files]
 
-    print(inference_pipeline(model_paths, n_avg= 5))
+    print(inference_pipeline(model_paths, n_avg= 5, model_paths_not_normalized = model_paths_not_normalized))

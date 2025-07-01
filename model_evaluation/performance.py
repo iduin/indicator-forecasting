@@ -25,119 +25,6 @@ from dotenv import load_dotenv
 sns.set(style="whitegrid")
 
 '''def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label_names, save_path=None):
-    # === 1. Collect Per-label Metrics ===
-    metrics = {"Label": [], "Metric": [], "Score": []}
-    for i, label in enumerate(label_names):
-        acc = accuracy_score(y_true[:, i], y_pred[:, i])
-        precision, recall, f1, _ = precision_recall_fscore_support(
-            y_true[:, i], y_pred[:, i], average='binary', zero_division=0)
-        try:
-            auc = roc_auc_score(y_true[:, i], y_prob[:, i])
-        except ValueError:
-            auc = np.nan
-
-        metrics["Label"] += [label] * 5
-        metrics["Metric"] += ["Accuracy", "Precision", "Recall", "F1", "AUC"]
-        metrics["Score"] += [acc, precision, recall, f1, auc]
-
-    df = pd.DataFrame(metrics)
-
-    # === 2. Compute Macro and Micro Metrics ===
-    macro_p, macro_r, macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
-    micro_p, micro_r, micro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='micro', zero_division=0)
-
-    summary_text = (
-        f"Macro Avg:\n  Precision = {macro_p:.3f}\n  Recall = {macro_r:.3f}\n  F1 = {macro_f1:.3f}\n\n"
-        f"Micro Avg:\n  Precision = {micro_p:.3f}\n  Recall = {micro_r:.3f}\n  F1 = {micro_f1:.3f}"
-    )
-
-    # === 3. Create Unified Figure ===
-    fig = plt.figure(figsize=(18, 14))
-    grid = fig.add_gridspec(4, 3, height_ratios=[1.2, 1, 1, 1])
-
-    # === Barplot of Metrics ===
-    ax_bar = fig.add_subplot(grid[0, :3])
-    sns.barplot(data=df, x="Label", y="Score", hue="Metric", palette="Set2", ax=ax_bar)
-    ax_bar.set_title("Per-label Classification Metrics", fontsize=16)
-    ax_bar.set_ylim(0, 1)
-    ax_bar.tick_params(axis='x', rotation=45)
-    ax_bar.legend(title="Metric", bbox_to_anchor=(1.01, 1), loc='upper left')
-
-    # Add value labels on bars
-    for p in ax_bar.patches:
-        height = p.get_height()
-        if not (np.isnan(height) or height == 0):
-            ax_bar.annotate(f'{height:.2f}',
-                            (p.get_x() + p.get_width() / 2., height),
-                            ha='center', va='bottom',
-                            fontsize=9, color='black', rotation=90)
-
-    ax_bar.legend(title="Metric", bbox_to_anchor=(1.01, 1), loc='upper left')
-
-    # === Summary Box ===
-    ax_bar.text(5.5, 0.1, summary_text, fontsize=12,
-                 bbox=dict(boxstyle="round,pad=0.5", facecolor="lightgray", edgecolor="black"))
-
-    # === Confusion Matrices ===
-    for i in range(6):
-        row = 1 + i // 3
-        col = i % 3
-        ax_cm = fig.add_subplot(grid[row, col])
-        cm = confusion_matrix(y_true[:, i], y_pred[:, i])
-        sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", cbar=False, ax=ax_cm)
-        ax_cm.set_title(f"{label_names[i]}")
-        ax_cm.set_xlabel("Predicted")
-        ax_cm.set_ylabel("Actual")
-
-    # === Final Layout ===
-    plt.suptitle("Multilabel Classification Performance Summary", fontsize=18, y=0.98)
-    plt.tight_layout()#rect=[0, 0, 1, 0.96])    
-    
-        # === 4. Performance vs. 'len' by Label ===
-    ax_curve = fig.add_subplot(grid[2, :])  # Use full width of last row for clarity
-
-    df_perf = pd.DataFrame({
-        "len": np.array(sample_lengths).flatten()
-    })
-
-    bins = [50, 100, 150, 200, 250, 300]
-    df_perf["len_bin"] = pd.cut(df_perf["len"], bins=bins, right=False)
-
-    f1_by_bin_label = []
-
-    for i, label in enumerate(label_names):
-        # Build temp df for current label
-        temp_df = pd.DataFrame({
-            "len_bin": df_perf["len_bin"],
-            "y_true": y_true[:, i],
-            "y_pred": y_pred[:, i]
-        })
-
-        grouped = temp_df.groupby("len_bin")
-        for bin_name, group in grouped:
-            if len(group) == 0:
-                continue
-            f1 = f1_score(group["y_true"], group["y_pred"], zero_division=0)
-            f1_by_bin_label.append({"len_bin": bin_name, "Label": label, "F1": f1})
-
-    df_f1_curve = pd.DataFrame(f1_by_bin_label)
-    df_f1_curve["len_bin"] = df_f1_curve["len_bin"].astype(str)
-
-    sns.lineplot(data=df_f1_curve, x="len_bin", y="F1", hue="Label", marker="o", ax=ax_curve)
-    ax_curve.set_title("F1-Score vs. 'len' bin for Each Indicator", fontsize=14)
-    ax_curve.set_ylabel("F1-Score")
-    ax_curve.set_xlabel("'len' bin")
-    ax_curve.set_ylim(0, 1)
-    ax_curve.tick_params(axis='x', rotation=45)
-
-    # Save if needed
-    if save_path:
-        plt.savefig(save_path, dpi=300, bbox_inches='tight')
-        print(f"Saved to {save_path}")
-
-    plt.show()'''
-
-def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label_names, save_path=None):
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
@@ -251,49 +138,46 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
         print(f"Saved to {save_path}")
 
     plt.show()
+'''
 
-
-def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label_names, save_path=None):
+def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, label_names, save_path=None):
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np
     import pandas as pd
     from sklearn.metrics import (
         accuracy_score, precision_recall_fscore_support,
-        roc_auc_score, confusion_matrix, f1_score
+        roc_auc_score, confusion_matrix, f1_score, roc_curve
     )
-
     sns.set_style("whitegrid")
     plt.rcParams.update({'font.size': 10})
 
     # === 1. Per-label Metrics ===
     metrics = {"Label": [], "Metric": [], "Score": []}
+    roc_data = []
+    
     for i, label in enumerate(label_names):
         acc = accuracy_score(y_true[:, i], y_pred[:, i])
         precision, recall, f1, _ = precision_recall_fscore_support(
             y_true[:, i], y_pred[:, i], average='binary', zero_division=0)
         try:
             auc = roc_auc_score(y_true[:, i], y_prob[:, i])
+            # Données pour courbe ROC
+            fpr, tpr, _ = roc_curve(y_true[:, i], y_prob[:, i])
+            roc_data.append({'label': label, 'fpr': fpr, 'tpr': tpr, 'auc': auc})
         except ValueError:
             auc = np.nan
 
-        metrics["Label"] += [label] * 5
-        metrics["Metric"] += ["Accuracy", "Precision", "Recall", "F1", "AUC"]
-        metrics["Score"] += [acc, precision, recall, f1, auc]
+        metrics["Label"] += [label] * 4  # Suppression de AUC du barplot
+        metrics["Metric"] += ["Accuracy", "Precision", "Recall", "F1"]
+        metrics["Score"] += [acc, precision, recall, f1]
 
     df = pd.DataFrame(metrics)
 
-    # === 2. Macro & Micro Metrics ===
-    macro_p, macro_r, macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
-    micro_p, micro_r, micro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='micro', zero_division=0)
-
-    summary_text = (
-        f"Macro Avg:\nPrecision = {macro_p:.3f}\nRecall = {macro_r:.3f}\nF1 = {macro_f1:.3f}\n\n"
-        f"Micro Avg:\nPrecision = {micro_p:.3f}\nRecall = {micro_r:.3f}\nF1 = {micro_f1:.3f}"
-    )
+    
 
     # === 3. Create Figure Layout ===
-    fig = plt.figure(figsize=(22, 20))
+    fig = plt.figure(figsize=(18, 12))
     
     # Ajustement des ratios et espacement
     gs = fig.add_gridspec(4, 6, 
@@ -309,8 +193,8 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
     bars = sns.barplot(data=df, x="Label", y="Score", hue="Metric", 
                       palette="viridis", ax=ax_bar)
     
-    ax_bar.set_title("Per-label Classification Metrics", fontsize=16, weight="bold", pad=20)
-    ax_bar.set_ylim(0, 1.05)
+    #ax_bar.set_title("Per-label Classification Metrics", fontsize=16, weight="bold", pad=20)
+    ax_bar.set_ylim(0, 1)
     ax_bar.set_xlabel("Indicator", fontsize=12, weight="bold")
     ax_bar.set_ylabel("Score", fontsize=12, weight="bold")
     
@@ -329,14 +213,7 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
                            (p.get_x() + p.get_width() / 2., height + 0.01),
                            ha='center', va='bottom', fontsize=8, 
                            color='black', rotation=90)
-
-    # Summary Box repositionnée
-    ax_summary = fig.add_subplot(gs[0, 5])
-    ax_summary.axis('off')
-    ax_summary.text(0.1, 0.5, summary_text, fontsize=11, va='center',
-                   bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", 
-                            edgecolor="navy", alpha=0.7),
-                   transform=ax_summary.transAxes)
+            
 
     # === B. Confusion Matrices ===
     # Réorganisation en 2 lignes de 3 matrices
@@ -359,50 +236,54 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
         ax_cm.set_ylabel("Actual", fontsize=10)
         ax_cm.tick_params(labelsize=9)
 
-    # === C. Accuracy Curve by Sample Length ===
+    # === C. ROC Curves ===
     # Utilisation des colonnes restantes pour la courbe
-    ax_curve = fig.add_subplot(gs[2:4, 3:6])
     
-    df_perf = pd.DataFrame({
-        "len": np.array(sample_lengths).flatten()
-    })
-    bins = np.linspace(50, 300, 26)
-    df_perf["len_bin"] = pd.cut(df_perf["len"], bins=bins, right=False)
+    ax_roc = fig.add_subplot(gs[2:4, 3:6])
+    
+    colors = plt.cm.Set1(np.linspace(0, 1, len(roc_data)))
+    for i, data in enumerate(roc_data):
+        if not np.isnan(data['auc']):
+            ax_roc.plot(data['fpr'], data['tpr'], 
+                       label=f"{data['label']} (AUC={data['auc']:.3f})",
+                       color=colors[i], linewidth=2)
+    
+    ax_roc.plot([0, 1], [0, 1], 'k--', alpha=0.5)
+    ax_roc.set_xlabel('False Positive Rate', fontsize=10)
+    ax_roc.set_ylabel('True Positive Rate', fontsize=10)
+    ax_roc.set_title('ROC Curves', fontsize=12, weight="bold")
+    ax_roc.legend(fontsize=8, loc='lower right')
+    ax_roc.grid(True, alpha=0.3)
 
-    f1_by_bin_label = []
-    for i, label in enumerate(label_names):
-        temp_df = pd.DataFrame({
-            "len_bin": df_perf["len_bin"],
-            "y_true": y_true[:, i],
-            "y_pred": y_pred[:, i]
-        })
-        grouped = temp_df.groupby("len_bin", observed=False)
-        for bin_name, group in grouped:
-            if len(group) == 0:
-                continue
-            acc = accuracy_score(group["y_true"], group["y_pred"])
-            bin_mid = (bin_name.left + bin_name.right) / 2
-            f1_by_bin_label.append({
-                "bin_mid": bin_mid, 
-                "Label": label, 
-                "Accuracy": acc
-            })
+    # === D. Macro & Micro Metrics ===
+    macro_p, macro_r, macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
+    micro_p, micro_r, micro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='micro', zero_division=0)
 
-    if f1_by_bin_label:  # Vérifier que nous avons des données
-        df_f1_curve = pd.DataFrame(f1_by_bin_label)
-        
-        # Utilisation de bin_mid pour un axe x numérique
-        sns.lineplot(data=df_f1_curve, x="bin_mid", y="Accuracy", 
-                    hue="Label", marker="o", linewidth=2, markersize=4, ax=ax_curve)
-        
-        ax_curve.set_title("Accuracy vs. Sample Length by Label", 
-                          fontsize=14, weight="bold", pad=15)
-        ax_curve.set_ylabel("Accuracy", fontsize=12, weight="bold")
-        ax_curve.set_xlabel("Sample Length", fontsize=12, weight="bold")
-        ax_curve.set_ylim(0, 1.05)
-        ax_curve.grid(True, alpha=0.3)
-        ax_curve.legend(title="Label", fontsize=9, title_fontsize=10)
-        ax_curve.tick_params(labelsize=10)
+    summary_text = (
+        f"Macro Avg:\nPrecision = {macro_p:.3f}\nRecall = {macro_r:.3f}\nF1 = {macro_f1:.3f}\n\n"
+        f"Micro Avg:\nPrecision = {micro_p:.3f}\nRecall = {micro_r:.3f}\nF1 = {micro_f1:.3f}"
+    )
+    ax_summary = fig.add_subplot(gs[1, 5:])
+    ax_summary.axis('off')
+    
+    summary_text = (
+        f"MACRO AVERAGES\n"
+        f"Precision: {macro_p:.3f}\n"
+        f"Recall: {macro_r:.3f}\n"
+        f"F1-Score: {macro_f1:.3f}\n\n"
+        f"MICRO AVERAGES\n"
+        f"Precision: {micro_p:.3f}\n"
+        f"Recall: {micro_r:.3f}\n"
+        f"F1-Score: {micro_f1:.3f}\n\n"
+        f"DATASET INFO\n"
+        f"Samples: {len(y_true)}\n"
+        f"Labels: {len(label_names)}"
+    )
+    
+    ax_summary.text(0.05, 0.95, summary_text, fontsize=10, va='top',
+                   bbox=dict(boxstyle="round,pad=0.6", facecolor="lightblue", 
+                            edgecolor="navy", alpha=0.8),
+                   transform=ax_summary.transAxes)
 
     # === Final Layout & Save ===
     plt.suptitle("Multilabel Classification Performance Dashboard", 
@@ -413,7 +294,6 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
         print(f"Dashboard saved to {save_path}")
 
     plt.show()
-
 
 
 if __name__ == "__main__" :
