@@ -15,6 +15,7 @@ from tqdm import tqdm
 from models_architectures.vit import load_model_VIT
 from models_architectures.resnet import load_model_resnet_18
 from models_architectures.squeezenet import load_model_squeezenet
+from models_architectures.general import load_model_general
 from data_processing.dataset import get_dataloader, get_train_val_loaders
 import os
 import random
@@ -23,7 +24,7 @@ from dotenv import load_dotenv
 
 sns.set(style="whitegrid")
 
-def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label_names, save_path=None):
+'''def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label_names, save_path=None):
     # === 1. Collect Per-label Metrics ===
     metrics = {"Label": [], "Metric": [], "Score": []}
     for i, label in enumerate(label_names):
@@ -134,7 +135,7 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"Saved to {save_path}")
 
-    plt.show()
+    plt.show()'''
 
 def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label_names, save_path=None):
     import matplotlib.pyplot as plt
@@ -175,8 +176,8 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
     )
 
     # === 3. Create Figure Layout ===
-    fig = plt.figure(figsize=(20, 18))
-    grid = fig.add_gridspec(3, 6, height_ratios=[1.2, 1, 1.2], hspace=0.8)
+    fig = plt.figure(figsize=(20, 18), constrained_layout=True)
+    grid = fig.add_gridspec(3, 6, height_ratios=[1.2, 1, 1.2])
 
     # === A. Barplot ===
     ax_bar = fig.add_subplot(grid[0, :])
@@ -203,7 +204,7 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
         row = 1 + i // 3
         col = i % 3
         ax_cm = fig.add_subplot(grid[1, i])
-        cm = confusion_matrix(y_true[:, i], y_pred[:, i], normalize= 'pred')
+        cm = confusion_matrix(y_true[:, i], y_pred[:, i], normalize= 'all')
         sns.heatmap(cm, annot=True, fmt=".2f", cmap="Blues", cbar=False, ax=ax_cm,
                     annot_kws={"fontsize": 10}, vmin=0, vmax=1)
         ax_cm.set_title(label_names[i], fontsize=13)
@@ -242,11 +243,174 @@ def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label
 
     # === Final Layout & Save ===
     plt.suptitle("Multilabel Classification Performance Summary", fontsize=22, y=0.99, weight="bold")
-    plt.tight_layout(rect=[0, 0, 1, 0.97])
+    plt.subplots_adjust(top=0.90, hspace=0.8)
+    #plt.tight_layout(rect=[0, 0, 1, 0.97])
 
     if save_path:
         plt.savefig(save_path, dpi=300, bbox_inches='tight')
         print(f"Saved to {save_path}")
+
+    plt.show()
+
+
+def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, sample_lengths, label_names, save_path=None):
+    import matplotlib.pyplot as plt
+    import seaborn as sns
+    import numpy as np
+    import pandas as pd
+    from sklearn.metrics import (
+        accuracy_score, precision_recall_fscore_support,
+        roc_auc_score, confusion_matrix, f1_score
+    )
+
+    sns.set_style("whitegrid")
+    plt.rcParams.update({'font.size': 10})
+
+    # === 1. Per-label Metrics ===
+    metrics = {"Label": [], "Metric": [], "Score": []}
+    for i, label in enumerate(label_names):
+        acc = accuracy_score(y_true[:, i], y_pred[:, i])
+        precision, recall, f1, _ = precision_recall_fscore_support(
+            y_true[:, i], y_pred[:, i], average='binary', zero_division=0)
+        try:
+            auc = roc_auc_score(y_true[:, i], y_prob[:, i])
+        except ValueError:
+            auc = np.nan
+
+        metrics["Label"] += [label] * 5
+        metrics["Metric"] += ["Accuracy", "Precision", "Recall", "F1", "AUC"]
+        metrics["Score"] += [acc, precision, recall, f1, auc]
+
+    df = pd.DataFrame(metrics)
+
+    # === 2. Macro & Micro Metrics ===
+    macro_p, macro_r, macro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='macro', zero_division=0)
+    micro_p, micro_r, micro_f1, _ = precision_recall_fscore_support(y_true, y_pred, average='micro', zero_division=0)
+
+    summary_text = (
+        f"Macro Avg:\nPrecision = {macro_p:.3f}\nRecall = {macro_r:.3f}\nF1 = {macro_f1:.3f}\n\n"
+        f"Micro Avg:\nPrecision = {micro_p:.3f}\nRecall = {micro_r:.3f}\nF1 = {micro_f1:.3f}"
+    )
+
+    # === 3. Create Figure Layout ===
+    fig = plt.figure(figsize=(22, 20))
+    
+    # Ajustement des ratios et espacement
+    gs = fig.add_gridspec(4, 6, 
+                         height_ratios=[1.5, 0.1, 1.2, 1.3], 
+                         width_ratios=[1, 1, 1, 1, 1, 0.3],
+                         hspace=0.4, wspace=0.3,
+                         left=0.05, right=0.95, top=0.93, bottom=0.07)
+
+    # === A. Barplot ===
+    ax_bar = fig.add_subplot(gs[0, :5])  # Prend les 5 premières colonnes
+    
+    # Création du barplot avec une palette plus lisible
+    bars = sns.barplot(data=df, x="Label", y="Score", hue="Metric", 
+                      palette="viridis", ax=ax_bar)
+    
+    ax_bar.set_title("Per-label Classification Metrics", fontsize=16, weight="bold", pad=20)
+    ax_bar.set_ylim(0, 1.05)
+    ax_bar.set_xlabel("Indicator", fontsize=12, weight="bold")
+    ax_bar.set_ylabel("Score", fontsize=12, weight="bold")
+    
+    # Rotation des labels x pour éviter les chevauchements
+    ax_bar.tick_params(axis='x', rotation=45, labelsize=10)
+    ax_bar.tick_params(axis='y', labelsize=10)
+    
+    # Légende repositionnée
+    ax_bar.legend(title="Metric", bbox_to_anchor=(1.02, 1), loc='upper left', fontsize=10)
+
+    # Value labels avec rotation pour éviter les chevauchements
+    for p in ax_bar.patches:
+        height = p.get_height()
+        if not np.isnan(height) and height > 0:
+            ax_bar.annotate(f'{height:.2f}', 
+                           (p.get_x() + p.get_width() / 2., height + 0.01),
+                           ha='center', va='bottom', fontsize=8, 
+                           color='black', rotation=90)
+
+    # Summary Box repositionnée
+    ax_summary = fig.add_subplot(gs[0, 5])
+    ax_summary.axis('off')
+    ax_summary.text(0.1, 0.5, summary_text, fontsize=11, va='center',
+                   bbox=dict(boxstyle="round,pad=0.5", facecolor="lightblue", 
+                            edgecolor="navy", alpha=0.7),
+                   transform=ax_summary.transAxes)
+
+    # === B. Confusion Matrices ===
+    # Réorganisation en 2 lignes de 3 matrices
+    cm_positions = [(2, 0), (2, 1), (2, 2), (3, 0), (3, 1), (3, 2)]
+    
+    for i in range(min(6, len(label_names))):
+        row, col = cm_positions[i]
+        ax_cm = fig.add_subplot(gs[row, col])
+        
+        cm = confusion_matrix(y_true[:, i], y_pred[:, i], normalize='all')
+        
+        # Matrice de confusion avec une meilleure colormap
+        sns.heatmap(cm, annot=True, fmt=".2f", cmap="Blues", 
+                   cbar=True, ax=ax_cm, cbar_kws={'shrink': 0.6},
+                   annot_kws={"fontsize": 9}, vmin=0, vmax=1,
+                   square=True)
+        
+        ax_cm.set_title(f"{label_names[i]}", fontsize=12, weight="bold", pad=10)
+        ax_cm.set_xlabel("Predicted", fontsize=10)
+        ax_cm.set_ylabel("Actual", fontsize=10)
+        ax_cm.tick_params(labelsize=9)
+
+    # === C. Accuracy Curve by Sample Length ===
+    # Utilisation des colonnes restantes pour la courbe
+    ax_curve = fig.add_subplot(gs[2:4, 3:6])
+    
+    df_perf = pd.DataFrame({
+        "len": np.array(sample_lengths).flatten()
+    })
+    bins = np.linspace(50, 300, 26)
+    df_perf["len_bin"] = pd.cut(df_perf["len"], bins=bins, right=False)
+
+    f1_by_bin_label = []
+    for i, label in enumerate(label_names):
+        temp_df = pd.DataFrame({
+            "len_bin": df_perf["len_bin"],
+            "y_true": y_true[:, i],
+            "y_pred": y_pred[:, i]
+        })
+        grouped = temp_df.groupby("len_bin", observed=False)
+        for bin_name, group in grouped:
+            if len(group) == 0:
+                continue
+            acc = accuracy_score(group["y_true"], group["y_pred"])
+            bin_mid = (bin_name.left + bin_name.right) / 2
+            f1_by_bin_label.append({
+                "bin_mid": bin_mid, 
+                "Label": label, 
+                "Accuracy": acc
+            })
+
+    if f1_by_bin_label:  # Vérifier que nous avons des données
+        df_f1_curve = pd.DataFrame(f1_by_bin_label)
+        
+        # Utilisation de bin_mid pour un axe x numérique
+        sns.lineplot(data=df_f1_curve, x="bin_mid", y="Accuracy", 
+                    hue="Label", marker="o", linewidth=2, markersize=4, ax=ax_curve)
+        
+        ax_curve.set_title("Accuracy vs. Sample Length by Label", 
+                          fontsize=14, weight="bold", pad=15)
+        ax_curve.set_ylabel("Accuracy", fontsize=12, weight="bold")
+        ax_curve.set_xlabel("Sample Length", fontsize=12, weight="bold")
+        ax_curve.set_ylim(0, 1.05)
+        ax_curve.grid(True, alpha=0.3)
+        ax_curve.legend(title="Label", fontsize=9, title_fontsize=10)
+        ax_curve.tick_params(labelsize=10)
+
+    # === Final Layout & Save ===
+    plt.suptitle("Multilabel Classification Performance Dashboard", 
+                fontsize=20, y=0.97, weight="bold")
+
+    if save_path:
+        plt.savefig(save_path, dpi=300, bbox_inches='tight', facecolor='white')
+        print(f"Dashboard saved to {save_path}")
 
     plt.show()
 
@@ -260,7 +424,7 @@ if __name__ == "__main__" :
 
     DATA_DIR = os.getenv("DATA_DIR")
 
-    TYPE_OF_DATA = "scaled"
+    TYPE_OF_DATA = "synth_scaled"
     
     if TYPE_OF_DATA == "" :
         str_to_add = ""
@@ -284,7 +448,7 @@ if __name__ == "__main__" :
     WEIGHT_DECAY = 0.0001
     BATCH_SIZE = 32
     NUM_EPOCHS = 100
-    IMAGE_SIZE = 128
+    IMAGE_SIZE = 256    #<================================================================================================================================================
     PATCH_SIZE = 6
     NUM_PATCHES = (IMAGE_SIZE // PATCH_SIZE) ** 2
     PROJECTION_DIM = 64
@@ -294,7 +458,7 @@ if __name__ == "__main__" :
 
 
     MODEL_DIR = 'model'
-    MODEL_NAME = 'vit_' + str(IMAGE_SIZE) + str_to_add +  "_final"
+    MODEL_NAME = 'squeezenet_' + str(IMAGE_SIZE) + str_to_add +  "_final"   #<================================================================================================================================================
     MODEL_FILE = MODEL_NAME + '.pth'
     MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 
@@ -308,9 +472,7 @@ if __name__ == "__main__" :
 
     
 
-    model = load_model_VIT(MODEL_PATH, DEVICE)
+    model = load_model_general(MODEL_PATH, DEVICE)
     all_labels, all_preds, all_probs, _, all_lens, _ = inference (model, test_loader, INDICS, DEVICE)
-
-    print(all_probs)
 
     plot_full_evaluation_dashboard(all_labels, all_preds, all_probs, all_lens, INDICS, save_path = PERF_PATH)

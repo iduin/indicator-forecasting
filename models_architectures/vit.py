@@ -199,28 +199,48 @@ class ViTMultiLabelClassifierModel(torch.nn.Module):
       logits = self.logits_layer(x)
       return logits #self.sigmoid(logits)  # Raw logits for BCEWithLogitsLoss
 
+import math
+
 def infer_vit_config(state_dict):
     config = {}
-    
-    # Position embedding: [num_patches, embed_dim]
-    pos_emb_shape = state_dict["patch_embedding_layer.position_emb.weight"].shape
-    config["num_patches"] = pos_emb_shape[0] - 1
-    config["embed_dim"] = pos_emb_shape[1]
 
-    # Feedforward dim from FFN layer
+    # --- Position embedding ---
+    pos_emb_shape = state_dict["patch_embedding_layer.position_emb.weight"].shape
+    num_tokens, embed_dim = pos_emb_shape
+    num_patches = num_tokens - 1  # exclude class token
+
+    config["embed_dim"] = embed_dim
+    config["num_patches"] = num_patches
+
+    # --- Feedforward layer dim ---
     config["feed_forward_dim"] = state_dict["transformer_layers.0.ffn.0.0.weight"].shape[0]
 
-    # Infer number of transformer layers
+    # --- Number of transformer layers ---
     config["num_transformer_layers"] = len({
         k.split('.')[1]
         for k in state_dict
         if k.startswith("transformer_layers.")
     })
 
-    # Optional: you may try to infer num_heads if possible (harder reliably)
-    config["num_heads"] = 4  # fallback default or custom logic if known
+    # --- Projection layer: infer patch size ---
+    projection_shape = state_dict["patch_embedding_layer.projection_layer.weight"].shape
+    proj_in_dim = projection_shape[1]  # [embed_dim, 3 * patch_size^2]
+    patch_size = int(math.sqrt(proj_in_dim // 3))
+    config["patch_size"] = patch_size
+
+    # --- Estimate image size (assuming square image and patch grid) ---
+    patch_grid = int(round(math.sqrt(num_patches)))
+    image_size = patch_grid * patch_size
+
+    #config["patch_grid"] = patch_grid
+    #config["image_size"] = image_size
+
+    # --- Optional: try to infer num_heads ---
+    # NOTE: You could inspect attention weights, but we'll default safely
+    config["num_heads"] = 4  # default or override manually
 
     return config
+
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

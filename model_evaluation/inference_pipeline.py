@@ -14,7 +14,8 @@ from models_architectures.squeezenet import load_model_squeezenet
 from models_architectures.general import load_model_general
 from data_processing.preprocessing import ECDFScaler
 from dotenv import load_dotenv
-import os
+import json
+from general_utils import clean_folder
 
 from tqdm import tqdm
 import shutil
@@ -89,63 +90,104 @@ def aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, al
     return final_labels, recalculated_preds, averaged_probs, final_dates, final_lens, final_sheets
 
 
-def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min',img_size = 256 , indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci'], scaler = None, APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder = 'temp_data', clean = True) :
-    
-    if clean :
-        for filename in os.listdir(temp_folder):
-            file_path = os.path.join(temp_folder, filename)
-            
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)  # Remove file or symbolic link
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)  # Remove directory and its contents
-            except Exception as e:
-                tqdm.write(f'Failed to delete {file_path}. Reason: {e}')
-    
-    
-    data = get_fmp_data(symbol, interval=interval, APIKEY = APIKEY)
-    
-    indicator = Indicator(data)
+def prepare_augmented_df(symbol, interval='30min', indics=None, n_avg=5,
+                              APIKEY=None, temp_folder='temp_data'):
+    if indics is None:
+        indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
 
+    # Clean temp folder
+    for filename in os.listdir(temp_folder):
+        file_path = os.path.join(temp_folder, filename)
+        try:
+            if os.path.isfile(file_path) or os.path.islink(file_path):
+                os.unlink(file_path)
+            elif os.path.isdir(file_path):
+                shutil.rmtree(file_path)
+        except Exception as e:
+            tqdm.write(f'Failed to delete {file_path}. Reason: {e}')
+
+    # Get data & indicators
+    data = get_fmp_data(symbol, interval=interval, APIKEY=APIKEY)
+    indicator = Indicator(data)
     indicator.macd()
     indicator.stochastic()
     indicator.rsi()
     indicator.adx()
     indicator.cci()
     df = indicator.df
-    mask = df.applymap(lambda x: pd.isna(x) or x == 0).any(axis=1)
-    # Find the index of the first row where NOT any value is NaN or 0
-    first_valid_idx = mask[~mask].index[0]
-    # Slice the DataFrame from that index onward
-    df = df.loc[first_valid_idx:].reset_index(drop=True)
+    mask = df.map(lambda x: pd.isna(x) or x == 0).any(axis=1)
+    df = df.loc[~mask].reset_index(drop=True)
 
-    for i in range (n_avg) :
-        img_path = os.path.join(temp_folder, symbol + f"_{i}.png")
-        csv_path = os.path.join(temp_folder, symbol + f"_{i}.csv")
+    for i in range(n_avg):
+        csv_path = os.path.join(temp_folder, f"{symbol}_{i}.csv")
+        draw_data(df, csv_path)    
 
-        img_df = draw_data(df, csv_path)
-        img = plot_rgb(img_df, indics, scaler= scaler)
-        img.savefig(img_path, dpi=100)
-        plt.close(img)
-        
-    loader, _  = get_dataloader(temp_folder, batch_size = 1, img_size= img_size)
+def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, temp_folder='temp_data', mean = None, std = None):
 
-    all_labels, all_preds, all_probs, all_dates, all_lens, all_sheet = inference(model, loader)
+    if indics is None:
+        indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
 
+    for file_name in os.listdir(temp_folder):
+        if os.path.splitext(file_name)[-1].lower() == '.csv' :
+            img_path = os.path.join(temp_folder, os.path.splitext(file_name)[0] + '.png')
+            csv_path = os.path.join(temp_folder, file_name)
+            img_df = pd.read_csv(csv_path)
+            img = plot_rgb(img_df, indics, scaler=scaler)
+            img.savefig(img_path, dpi=100)
+            plt.close(img)
+
+    loader, _ = get_dataloader(temp_folder, batch_size=1, img_size=img_size, mean = mean, std = std)
+    return inference(model, loader)
+
+def inference_pipeline(model_paths, symbol="AAPL", interval="30min", n_avg=5,
+                       indics=None, APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder="temp_data", clean = True):
     
-    all_labels, all_preds, all_probs, all_dates, all_lens, all_sheet = aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, all_lens, all_sheet)
+    if clean :
+        clean_folder(temp_folder)
 
+    all_preds, all_probs, all_labels, all_dates, all_lens, all_sheet = [], [], [], [], [], []
+    if indics is None:
+        indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
+
+    # Generate the augmented data once
+    prepare_augmented_df(symbol=symbol, interval=interval, indics=indics,
+                             n_avg=n_avg, APIKEY=APIKEY, temp_folder=temp_folder)
+
+    for model_path in model_paths:
+        config = extract_config(model_path)        
+
+        labels, preds, probs, dates, lens, sheet = infer_model_on_prepared_data(**config)
+        
+
+        all_preds.append(preds)
+        all_probs.append(probs)
+        all_labels.append(labels)
+        all_dates.append(dates)
+        all_lens.append(lens)
+        all_sheet.append(sheet)
+        
+    # Stack predictions from all models and averages
+    stacked_preds = np.concatenate(all_preds, axis=0)
+    stacked_probs = np.concatenate(all_probs, axis=0)
+    stacked_labels = np.concatenate(all_labels, axis=0) if all_labels[0] is not None else None
+    stacked_dates = np.concatenate(all_dates, axis=0)
+    stacked_lens = np.concatenate(all_lens, axis=0)
+    stacked_sheet = np.concatenate(all_sheet, axis=0)
+
+    # Aggregate predictions over time (and optionally models)
+    final_labels, final_preds, final_probs, final_dates, final_lens, final_sheets = aggregate_by_date_consistent(
+        stacked_labels, stacked_preds, stacked_probs, stacked_dates, stacked_lens, stacked_sheet)
+        
     pred_columns =  ['pred ' + i for i in indics]
     label_columns =  ['label ' + i for i in indics]
 
-    if all_labels is not None :
+    if final_labels is not None :
 
-        arrays = [all_dates, all_labels, all_preds, all_lens, all_sheet]
+        arrays = [final_dates, final_labels, final_preds, final_lens, final_sheets]
         columns = ['Date'] + label_columns + pred_columns  + ['Len', 'Sheet']
     
     else :
-        arrays = [all_dates, all_preds, all_lens, all_sheet]
+        arrays = [final_dates, final_preds, final_lens, final_sheets]
         columns = ['Date'] + pred_columns  + ['Len', 'Sheet']
 
     df = combine_arrays_to_df(arrays, columns)
@@ -153,18 +195,41 @@ def inference_pipeline(model, n_avg = 1,  symbol = "AAPL", interval = '30min',im
     df = df.sort_values('Date').reset_index(drop=True)
 
     if clean :
-        for filename in os.listdir(temp_folder):
-            file_path = os.path.join(temp_folder, filename)
-            
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)  # Remove file or symbolic link
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)  # Remove directory and its contents
-            except Exception as e:
-                tqdm.write(f'Failed to delete {file_path}. Reason: {e}')
+        clean_folder(temp_folder)
 
     return df
+
+
+
+def extract_config (model_path) :
+    config = {}
+    model = load_model_general(model_path)
+    config["model"] = model
+
+    data_type = ""
+    if 'synth' in model_path :
+        data_type += "_synth"
+    if 'scaled' in model_path :
+        scaler = ECDFScaler.load(os.path.join("ecdf_scaler" + data_type + ".pkl"))
+        data_type += "_scaled"
+    else :
+        scaler = None
+    with open("mean_std.json", "r") as f:
+        mean_std = json.load(f)
+    mean,std = mean_std["train" + data_type]
+    config["mean"] = mean
+    config["std"] = std
+    config["scaler"] = scaler
+
+    img_size = 256
+    if '128' in model_path :
+        img_size = 128
+    elif '72' in model_path :
+        img_size = 72
+    config["img_size"] = img_size
+
+    return config
+
 
 
 if __name__ == '__main__' :
@@ -176,12 +241,10 @@ if __name__ == '__main__' :
     scaler = ECDFScaler.load(os.path.join("ecdf_scaler.pkl"))
 
     MODEL_DIR = os.getenv('MODEL_DIR')
-    MODEL_FILE = 'VIT_128_scaled_final.pth'#'resnet_18_256_scaled_final.pth' #'VIT.pth'
-    MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
+    model_files = [
+        'VIT_128_scaled_final.pth',
+        'resnet_18_256_scaled_final.pth',
+    ]
+    model_paths = [os.path.join(MODEL_DIR, f) for f in model_files]
 
-
-    symbol = 'AAPL'
-
-    model = load_model_general(MODEL_PATH) # model = load_model_squeezenet(MODEL_PATH) # model = load_model_VIT(MODEL_PATH)
-
-    print(inference_pipeline(model, n_avg= 5, scaler = scaler, img_size= 128))
+    print(inference_pipeline(model_paths, n_avg= 5))

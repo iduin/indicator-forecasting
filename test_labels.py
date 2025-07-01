@@ -41,9 +41,13 @@ def test_labels_strong (labels_path, data_folder, raw_data_path, indics) :
 
 
 if __name__ == "__main__":
-    labels_paths = ['labels\\train_synth_labels.json','labels\\test_synth_labels.json']
+    DATA_DIR = "data"
 
-    data_folders = ['data_synth', 'test_synth']
+    LABEL_DIR = "labels"
+
+    labels_paths = [os.path.join(LABEL_DIR,'train_synth_scaled_labels.json'),os.path.join(LABEL_DIR,'test_synth_scaled_labels.json')]
+
+    data_folders = [os.path.join(DATA_DIR,'train_synth_scaled'), os.path.join(DATA_DIR,'test_synth_scaled')]
 
     raw_data_path = 'Base_Test_2500pts avec Synthétiques.xlsx'
 

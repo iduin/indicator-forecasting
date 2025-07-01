@@ -45,7 +45,7 @@ if __name__ == '__main__' :
 
     DATA_DIR = os.getenv("DATA_DIR")
 
-    TYPE_OF_DATA = "synth_scaled"
+    TYPE_OF_DATA = "scaled"
     
     if TYPE_OF_DATA == "" :
         str_to_add = ""
@@ -65,7 +65,7 @@ if __name__ == '__main__' :
 
     INDICS = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']    
 
-    LEARNING_RATE = 1e-5
+    LEARNING_RATE = 3e-5
     WEIGHT_DECAY = 0.0001
     BATCH_SIZE = 32
     NUM_EPOCHS = 100
@@ -79,7 +79,7 @@ if __name__ == '__main__' :
 
 
     MODEL_DIR = 'model'
-    MODEL_NAME = 'squeezenet' + str(IMAGE_SIZE) + str_to_add +  "_final"
+    MODEL_NAME = 'squeezenet_' + str(IMAGE_SIZE) + str_to_add +  "_final"
     MODEL_FILE = MODEL_NAME + '.pth'
     MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 

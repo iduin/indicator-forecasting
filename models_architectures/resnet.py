@@ -42,7 +42,7 @@ if __name__ == '__main__' :
 
     DATA_DIR = os.getenv("DATA_DIR")
 
-    TYPE_OF_DATA = "scaled"
+    TYPE_OF_DATA = "synth_scaled"
     
     if TYPE_OF_DATA == "" :
         str_to_add = ""
@@ -97,6 +97,8 @@ if __name__ == '__main__' :
     weight_decay=WEIGHT_DECAY,
     )
     loss_function = torch.nn.BCEWithLogitsLoss(pos_weight=pos_weights)
+
+    print(f'Training {MODEL_PATH}')
 
     history = train_network(
         model=model,
