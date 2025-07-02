@@ -15,7 +15,7 @@ from models_architectures.general import load_model_general
 from data_processing.preprocessing import ECDFScaler
 from dotenv import load_dotenv
 import json
-from general_utils import clean_folder
+from general_utils import clean_folder, load_json_list
 
 from tqdm import tqdm
 import shutil
@@ -239,14 +239,7 @@ def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR')) :
 
 if __name__ == '__main__' :
     
-    model_paths_not_normalized = [  # Liste des models dont les images n'ont pas été normalisés  ######################### GARDER CETTE LISTE ###########################
-        "resnet_multilabel.pth",
-        "resnet_multilabel2.pth",
-        "resnet_multilabel3_synth.pth",
-        "resnet_multilabel_synth.pth",
-        "VIT3_72_synth.pth",
-        "vit_72_synth.pth"
-    ]
+    model_paths_not_normalized = load_json_list("MODELS_NOT_NORM")  # Liste des models dont les images n'ont pas été normalisés  ######################### GARDER CETTE LISTE ###########################        
 
     load_dotenv()
 

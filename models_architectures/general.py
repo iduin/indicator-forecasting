@@ -16,3 +16,6 @@ def load_model_general (path, device = DEVICE) :
         return load_model_VIT(path, device = device)
     else :
         raise ValueError(f"Unknown model type in path: '{path}'. Expected 'resnet', 'squeezenet', or 'vit'. Try directly using the appropriate model loader.")
+    
+if __name__ == '__main__' :
+    load_model_general('model/squeezenet_multilabel.pth')

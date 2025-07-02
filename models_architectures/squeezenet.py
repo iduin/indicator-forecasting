@@ -12,7 +12,7 @@ from models_architectures.utils import load_model_safely
 class SqueezeNet_Multilabel(nn.Module):
     def __init__(self, num_classes=6, weights=SqueezeNet1_1_Weights.DEFAULT):
         super(SqueezeNet_Multilabel, self).__init__()
-        self.model = models.squeezenet1_1(weights=weights)
+        self.model = models.squeezenet1_1(pretrained=True)
         
         # Replace the final fully connected layer
         self.model.classifier = nn.Sequential(
@@ -23,7 +23,8 @@ class SqueezeNet_Multilabel(nn.Module):
         )
 
     def forward(self, x):
-        return self.model(x)
+        x = self.model(x)
+        return x.view(x.size(0), -1)
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -65,17 +66,11 @@ if __name__ == '__main__' :
 
     INDICS = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']    
 
-    LEARNING_RATE = 3e-5
-    WEIGHT_DECAY = 0.0001
+    LEARNING_RATE = 1e-5
+    WEIGHT_DECAY = 0#.00001
     BATCH_SIZE = 32
     NUM_EPOCHS = 100
     IMAGE_SIZE = 256
-    PATCH_SIZE = 6
-    NUM_PATCHES = (IMAGE_SIZE // PATCH_SIZE) ** 2
-    PROJECTION_DIM = 64
-    NUM_HEADS = 4
-    TRANSFORMER_LAYERS = 8
-    MLP_HEAD_UNITS = [2048, 1024]
 
 
     MODEL_DIR = 'model'
