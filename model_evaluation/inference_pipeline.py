@@ -114,13 +114,15 @@ def prepare_augmented_df(symbol, interval='30min', indics=None, n_avg=5,
     indicator.rsi()
     indicator.adx()
     indicator.cci()
-    df = indicator.df
-    mask = df.map(lambda x: pd.isna(x) or x == 0).any(axis=1)
-    df = df.loc[~mask].reset_index(drop=True)
+    df_history = indicator.df
+    mask = df_history.map(lambda x: pd.isna(x) or x == 0).any(axis=1)
+    df = df_history.loc[~mask].reset_index(drop=True)
 
     for i in range(n_avg):
         csv_path = os.path.join(temp_folder, f"{symbol}_{i}.csv")
         draw_data(df, csv_path)    
+
+    return df_history
 
 def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, temp_folder='temp_data', mean = None, std = None):
 
@@ -138,73 +140,6 @@ def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, 
 
     loader, _ = get_dataloader(temp_folder, batch_size=1, img_size=img_size, mean = mean, std = std)
     return inference(model, loader)
-
-def inference_pipeline(model_paths, symbol="AAPL", interval="30min", n_avg=5,
-                       indics=None, APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif', temp_folder="temp_data", clean = True, 
-                       model_paths_not_normalized = ["resnet_multilabel2.pth","resnet_multilabel3_synth.pth","resnet_multilabel_synth.pth","VIT3_72_synth.pth","vit_72_synth.pth"]):
-    
-    if clean :
-        clean_folder(temp_folder)
-
-    all_preds, all_probs, all_labels, all_dates, all_lens, all_sheet = [], [], [], [], [], []
-    if indics is None:
-        indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
-
-    # Generate the augmented data once
-    prepare_augmented_df(symbol=symbol, interval=interval, indics=indics,
-                             n_avg=n_avg, APIKEY=APIKEY, temp_folder=temp_folder)
-
-    for model_path in model_paths:
-        config = extract_config(model_path)
-
-        if model_path in model_paths_not_normalized :
-            config["mean"] = None
-            config["std"] = None
-
-        labels, preds, probs, dates, lens, sheet = infer_model_on_prepared_data(**config)
-        
-
-        all_preds.append(preds)
-        all_probs.append(probs)
-        all_labels.append(labels)
-        all_dates.append(dates)
-        all_lens.append(lens)
-        all_sheet.append(sheet)
-        
-    # Stack predictions from all models and averages
-    stacked_preds = np.concatenate(all_preds, axis=0)
-    stacked_probs = np.concatenate(all_probs, axis=0)
-    stacked_labels = np.concatenate(all_labels, axis=0) if all_labels[0] is not None else None
-    stacked_dates = np.concatenate(all_dates, axis=0)
-    stacked_lens = np.concatenate(all_lens, axis=0)
-    stacked_sheet = np.concatenate(all_sheet, axis=0)
-
-    # Aggregate predictions over time (and optionally models)
-    final_labels, final_preds, final_probs, final_dates, final_lens, final_sheets = aggregate_by_date_consistent(
-        stacked_labels, stacked_preds, stacked_probs, stacked_dates, stacked_lens, stacked_sheet)
-        
-    pred_columns =  ['pred ' + i for i in indics]
-    label_columns =  ['label ' + i for i in indics]
-
-    if final_labels is not None :
-
-        arrays = [final_dates, final_labels, final_preds, final_lens, final_sheets]
-        columns = ['Date'] + label_columns + pred_columns  + ['Len', 'Sheet']
-    
-    else :
-        arrays = [final_dates, final_preds, final_lens, final_sheets]
-        columns = ['Date'] + pred_columns  + ['Len', 'Sheet']
-
-    df = combine_arrays_to_df(arrays, columns)
-    df['Date'] = pd.to_datetime(df['Date'])
-    df = df.sort_values('Date').reset_index(drop=True)
-
-    if clean :
-        clean_folder(temp_folder)
-
-    return df
-
-
 
 def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR')) :
     config = {}
@@ -234,6 +169,75 @@ def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR')) :
     config["img_size"] = img_size
 
     return config
+
+
+def inference_pipeline(
+    model_paths,
+    symbol="AAPL",
+    interval="30min",
+    n_avg=5,
+    indics=None,
+    APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif',
+    temp_folder="temp_data",
+    clean=True,
+    model_paths_not_normalized=None
+):
+    if clean:
+        clean_folder(temp_folder)
+
+    if indics is None:
+        indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
+
+    if model_paths_not_normalized is None:
+        model_paths_not_normalized = []
+
+    # Generate the augmented data once (same augmented dataset used for all models)
+    df_history = prepare_augmented_df(symbol=symbol, interval=interval, indics=indics,
+                         n_avg=n_avg, APIKEY=APIKEY, temp_folder=temp_folder)
+
+    dfs = []
+
+    for model_path in model_paths:
+        config = extract_config(model_path)
+
+        if model_path in model_paths_not_normalized:
+            config["mean"] = None
+            config["std"] = None
+
+        # Run inference on augmented data, get raw preds, probs etc for each augmentation
+        labels, preds, probs, dates, lens, sheet = infer_model_on_prepared_data(**config)
+
+        # Now aggregate *within this model* over augmented data by date
+        agg_labels, agg_preds, agg_probs, agg_dates, agg_lens, agg_sheet = aggregate_by_date_consistent(
+            labels, preds, probs, dates, lens, sheet)
+
+        pred_columns = ['pred ' + i for i in indics]
+        label_columns = ['label ' + i for i in indics]
+
+        if agg_labels is not None:
+            arrays = [agg_dates, agg_labels, agg_preds, agg_lens, agg_sheet]
+            columns = ['Date'] + label_columns + pred_columns + ['Len', 'Sheet']
+        else:
+            arrays = [agg_dates, agg_preds, agg_lens, agg_sheet]
+            columns = ['Date'] + pred_columns + ['Len', 'Sheet']
+
+        df = combine_arrays_to_df(arrays, columns)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.sort_values('Date').reset_index(drop=True)
+
+        # Add the model name column for identification
+        df['Model'] = os.path.basename(model_path)
+
+        dfs.append(df)
+
+    # Concatenate all models vertically — multiple lines per date, one per model
+    combined_df = pd.concat(dfs, ignore_index=True)
+
+    if clean:
+        clean_folder(temp_folder)
+
+    return combined_df, df_history
+
 
 
 
