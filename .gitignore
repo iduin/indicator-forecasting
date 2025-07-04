@@ -36,3 +36,4 @@ image_processing.py
 inference_pipeline.ipynb
 test_VIT.ipynb
 test_reverse.ipynb
+train_shapes.json
