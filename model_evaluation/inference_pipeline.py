@@ -187,10 +187,6 @@ def inference_pipeline(
     if model_paths_not_normalized is None:
         model_paths_not_normalized = []
 
-    
-    data = get_fmp_data(symbol, interval=interval, APIKEY=APIKEY)
-    print(data.tail())
-
     # Generate the augmented data once (same augmented dataset used for all models)
     df_history = prepare_augmented_df(data, indics=indics, n_avg=n_avg, temp_folder=temp_folder)
 
