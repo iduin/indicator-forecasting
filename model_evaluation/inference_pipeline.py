@@ -90,8 +90,7 @@ def aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, al
     return final_labels, recalculated_preds, averaged_probs, final_dates, final_lens, final_sheets
 
 
-def prepare_augmented_df(symbol, interval='30min', indics=None, n_avg=5,
-                              APIKEY=None, temp_folder='temp_data'):
+def prepare_augmented_df(data, indics=None, n_avg=5, temp_folder='temp_data'):
     if indics is None:
         indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
 
@@ -107,7 +106,6 @@ def prepare_augmented_df(symbol, interval='30min', indics=None, n_avg=5,
             tqdm.write(f'Failed to delete {file_path}. Reason: {e}')
 
     # Get data & indicators
-    data = get_fmp_data(symbol, interval=interval, APIKEY=APIKEY)
     indicator = Indicator(data)
     indicator.macd()
     indicator.stochastic()
@@ -119,7 +117,7 @@ def prepare_augmented_df(symbol, interval='30min', indics=None, n_avg=5,
     df = df_history.loc[~mask].reset_index(drop=True)
 
     for i in range(n_avg):
-        csv_path = os.path.join(temp_folder, f"{symbol}_{i}.csv")
+        csv_path = os.path.join(temp_folder, f"SYMBOL_{i}.csv")
         draw_data(df, csv_path)    
 
     return df_history
@@ -173,11 +171,9 @@ def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR')) :
 
 def inference_pipeline(
     model_paths,
-    symbol="AAPL",
-    interval="30min",
+    data,
     n_avg=5,
     indics=None,
-    APIKEY='xQZFfDNtJjyxghjNX7YPW4VaZO1WzTif',
     temp_folder="temp_data",
     clean=True,
     model_paths_not_normalized=None
@@ -191,9 +187,12 @@ def inference_pipeline(
     if model_paths_not_normalized is None:
         model_paths_not_normalized = []
 
+    
+    data = get_fmp_data(symbol, interval=interval, APIKEY=APIKEY)
+    print(data.tail())
+
     # Generate the augmented data once (same augmented dataset used for all models)
-    df_history = prepare_augmented_df(symbol=symbol, interval=interval, indics=indics,
-                         n_avg=n_avg, APIKEY=APIKEY, temp_folder=temp_folder)
+    df_history = prepare_augmented_df(data, indics=indics, n_avg=n_avg, temp_folder=temp_folder)
 
     dfs = []
 
@@ -254,8 +253,14 @@ if __name__ == '__main__' :
     MODEL_DIR = os.getenv('MODEL_DIR')
     model_files = [
         'resnet_18_256_scaled_final.pth',
-        'VIT3_72_synth.pth',
+        'VIT_72.pth',
     ]
     model_paths = [os.path.join(MODEL_DIR, f) for f in model_files]
 
-    print(inference_pipeline(model_paths, n_avg= 5, model_paths_not_normalized = model_paths_not_normalized))
+    symbol="AAPL"
+    interval="30min"
+    APIKEY=os.getenv('APIKEY')
+
+    data = get_fmp_data(symbol = symbol, interval=interval, APIKEY=APIKEY)
+
+    print(inference_pipeline(model_paths, data, n_avg= 5, model_paths_not_normalized = model_paths_not_normalized))
