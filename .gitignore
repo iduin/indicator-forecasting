@@ -29,7 +29,6 @@ merged_common_sheets2.xlsx
 merged_common_sheets3.xlsx
 output.xlsx
 output2.xlsx
-resnet_multilabel2.pth
 test_cnn.py
 baseline.html
 time_precision.ipynb
