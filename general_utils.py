@@ -2,6 +2,7 @@ import os
 import json
 from dotenv import load_dotenv
 import shutil
+import re
 
 def clean_folder(folder_path):
     if not os.path.isdir(folder_path):
@@ -22,7 +23,19 @@ load_dotenv()
 
 def load_json_list(env_var):
     val = os.getenv(env_var)
-    return json.loads(val) if val else []
+    if not val:
+        raise ValueError(f"Environment variable '{env_var}' is not set or is empty.")
+    try:
+        return json.loads(val)
+    except json.JSONDecodeError as e:
+        raise ValueError(f"Invalid JSON in environment variable '{env_var}': {e}")
+    
+
+def clean_filename_keep_ext_conditional(filename):
+    name, ext = os.path.splitext(filename)
+    if name.count('_') >= 2:
+        name = re.sub(r'_[^_]+$', '', name)
+    return f"{name}{ext}"
 
 
 if __name__ == '__main__' :

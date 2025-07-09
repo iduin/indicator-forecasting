@@ -10,6 +10,7 @@ import os
 import random
 from torch.utils.data import Subset, DataLoader
 from datetime import datetime, time
+from general_utils import clean_filename_keep_ext
 
 def combine_arrays_to_df(arrays, columns=[]):
     arrays = [np.asarray(arr) for arr in arrays]
@@ -34,7 +35,7 @@ def format_datetime_column(df, column_name):
     df[column_name] = df[column_name].dt.strftime('%Y-%m-%dT%H:%M:%S%z')
     return df
 
-def inference(model, test_loader, indics=None, DEVICE=torch.device("cuda" if torch.cuda.is_available() else "cpu")):
+def inference(model, test_loader, indics=None, DEVICE=torch.device("cuda" if torch.cuda.is_available() else "cpu"), verbose = True):
     model.eval()
 
     all_labels = []
@@ -44,7 +45,7 @@ def inference(model, test_loader, indics=None, DEVICE=torch.device("cuda" if tor
     all_lens = []
 
     with torch.no_grad():
-        for batch in tqdm(test_loader):
+        for batch in tqdm(test_loader, disable = not verbose):
             if len(batch) == 5:
                 images, labels, dates, lens, file = batch
                 has_labels = True

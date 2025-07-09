@@ -11,13 +11,14 @@ import numpy as np
 from collections import Counter
 import seaborn as sns
 import random
+from general_utils import clean_filename_keep_ext
 
 class TimeSeriesGraphDataset(Dataset):
     def __init__(self, image_dir, labels_dict = None, transform=None):
         self.image_dir = image_dir
         self.labels_dict = labels_dict
-        if labels_dict is not None:
-            self.image_names = list(labels_dict.keys())
+        if labels_dict is not None:            
+            self.image_names = [f for f in os.listdir(image_dir) if (f.lower().endswith(('.png', '.jpg', '.jpeg')) and clean_filename_keep_ext(f) in list(labels_dict.keys()))]
         else:
             self.image_names = [f for f in os.listdir(image_dir) if f.lower().endswith(('.png', '.jpg', '.jpeg'))]
         self.transform = transform
@@ -50,7 +51,7 @@ class TimeSeriesGraphDataset(Dataset):
             image = self.transform(image)
 
         if self.labels_dict is not None:
-            label = torch.tensor(self.labels_dict[img_name], dtype=torch.float32)
+            label = torch.tensor(self.labels_dict[clean_filename_keep_ext(img_name)], dtype=torch.float32)
             return image, label, date, length, img_name
         else:
             return image, date, length, img_name

@@ -90,39 +90,37 @@ def aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, al
     return final_labels, recalculated_preds, averaged_probs, final_dates, final_lens, final_sheets
 
 
-def prepare_augmented_df(data, indics=None, n_avg=5, temp_folder='temp_data'):
+def prepare_augmented_df(data, indics=None, n_avg=5, temp_folder='temp_data', symbol = None):
     if indics is None:
         indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
 
-    # Clean temp folder
-    for filename in os.listdir(temp_folder):
-        file_path = os.path.join(temp_folder, filename)
-        try:
-            if os.path.isfile(file_path) or os.path.islink(file_path):
-                os.unlink(file_path)
-            elif os.path.isdir(file_path):
-                shutil.rmtree(file_path)
-        except Exception as e:
-            tqdm.write(f'Failed to delete {file_path}. Reason: {e}')
-
     # Get data & indicators
-    indicator = Indicator(data)
-    indicator.macd()
-    indicator.stochastic()
-    indicator.rsi()
-    indicator.adx()
-    indicator.cci()
-    df_history = indicator.df
+    if not set(indics).issubset(data.columns) :
+        indicator = Indicator(data)
+        indicator.macd()
+        indicator.stochastic()
+        indicator.rsi()
+        indicator.adx()
+        indicator.cci()
+        df_history = indicator.df
+    else :
+        df_history = data
     mask = df_history.map(lambda x: pd.isna(x) or x == 0).any(axis=1)
     df = df_history.loc[~mask].reset_index(drop=True)
 
+    if not symbol :
+        if 'Sheet' in df_history.columns:
+            symbol = df_history['Sheet'].iloc[0]
+        else :
+            symbol = "SYMBOL"
+
     for i in range(n_avg):
-        csv_path = os.path.join(temp_folder, f"SYMBOL_{i}.csv")
+        csv_path = os.path.join(temp_folder, f"{symbol}_{i}.csv")
         draw_data(df, csv_path)    
 
     return df_history
 
-def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, temp_folder='temp_data', mean = None, std = None):
+def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, temp_folder='temp_data', mean = None, std = None, labels_path= None):
 
     if indics is None:
         indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
@@ -136,10 +134,13 @@ def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, 
             img.savefig(img_path, dpi=100)
             plt.close(img)
 
-    loader, _ = get_dataloader(temp_folder, batch_size=1, img_size=img_size, mean = mean, std = std)
-    return inference(model, loader)
+    loader, _ = get_dataloader(temp_folder, labels_path= labels_path, batch_size=1, img_size=img_size, mean = mean, std = std)
+    inf = inference(model, loader, verbose = False)
+    return inf
 
-def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR')) :
+load_dotenv()
+
+def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR'), model_paths_not_normalized = load_json_list("MODELS_NOT_NORM")) :
     config = {}
     model = load_model_general(model_path)
     config["model"] = model
@@ -152,9 +153,12 @@ def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR')) :
         data_type += "_scaled"
     else :
         scaler = None
-    with open("mean_std.json", "r") as f:
-        mean_std = json.load(f)
-    mean,std = mean_std["train" + data_type]
+    if os.path.basename(model_path) in model_paths_not_normalized :
+        mean, std = None, None
+    else :
+        with open("mean_std.json", "r") as f:
+            mean_std = json.load(f)
+        mean, std = mean_std["train" + data_type]
     config["mean"] = mean
     config["std"] = std
     config["scaler"] = scaler
@@ -176,7 +180,9 @@ def inference_pipeline(
     indics=None,
     temp_folder="temp_data",
     clean=True,
-    model_paths_not_normalized=None
+    model_paths_not_normalized=None,
+    labels_path= None,
+    symbol = None
 ):
     if clean:
         clean_folder(temp_folder)
@@ -188,7 +194,7 @@ def inference_pipeline(
         model_paths_not_normalized = []
 
     # Generate the augmented data once (same augmented dataset used for all models)
-    df_history = prepare_augmented_df(data, indics=indics, n_avg=n_avg, temp_folder=temp_folder)
+    df_history = prepare_augmented_df(data, indics=indics, n_avg=n_avg, temp_folder=temp_folder, symbol = symbol)
 
     dfs = []
 
@@ -200,7 +206,7 @@ def inference_pipeline(
             config["std"] = None
 
         # Run inference on augmented data, get raw preds, probs etc for each augmentation
-        labels, preds, probs, dates, lens, sheet = infer_model_on_prepared_data(**config)
+        labels, preds, probs, dates, lens, sheet = infer_model_on_prepared_data(**config, indics=indics, labels_path= labels_path)
 
         # Now aggregate *within this model* over augmented data by date
         agg_labels, agg_preds, agg_probs, agg_dates, agg_lens, agg_sheet = aggregate_by_date_consistent(
@@ -235,6 +241,73 @@ def inference_pipeline(
 
 
 
+def inference_pipeline_preloaded(
+    model_configs,
+    data,
+    n_avg=5,
+    indics=None,
+    temp_folder="temp_data",
+    clean=True,
+    model_paths_not_normalized=None, 
+    labels_path = None,
+    symbol = None
+):
+    if clean:
+        clean_folder(temp_folder)
+
+    if indics is None:
+        indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
+
+    if model_paths_not_normalized is None:
+        model_paths_not_normalized = []
+
+    # Generate the augmented data once (same augmented dataset used for all models)
+    df_history = prepare_augmented_df(data, indics=indics, n_avg=n_avg, temp_folder=temp_folder, symbol = symbol)
+
+    dfs = []
+
+    for model_config in model_configs:
+
+        # Run inference on augmented data, get raw preds, probs etc for each augmentation
+        labels, preds, probs, dates, lens, sheet = infer_model_on_prepared_data(**model_config, indics=indics, labels_path = labels_path)
+
+        # Now aggregate *within this model* over augmented data by date
+        agg_labels, agg_preds, agg_probs, agg_dates, agg_lens, agg_sheet = aggregate_by_date_consistent(
+            labels, preds, probs, dates, lens, sheet)
+
+        pred_columns = ['pred ' + i for i in indics]
+        label_columns = ['label ' + i for i in indics]
+
+        if agg_labels is not None:
+            arrays = [agg_dates, agg_labels, agg_preds, agg_lens, agg_sheet]
+            columns = ['Date'] + label_columns + pred_columns + ['Len', 'Sheet']
+            int_cols = label_columns + pred_columns
+        else:
+            arrays = [agg_dates, agg_preds, agg_lens, agg_sheet]
+            columns = ['Date'] + pred_columns + ['Len', 'Sheet']
+            int_cols = pred_columns
+
+        df = combine_arrays_to_df(arrays, columns)
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.sort_values('Date').reset_index(drop=True)
+
+        df[int_cols] = df[int_cols].apply(pd.to_numeric, errors='coerce').astype(int)
+
+        # Add the model name column for identification
+        df['Model'] = os.path.basename(model_config["model"].__class__.__name__)
+
+        dfs.append(df)
+
+    # Concatenate all models vertically — multiple lines per date, one per model
+    combined_df = pd.concat(dfs, ignore_index=True)
+
+    if clean:
+        clean_folder(temp_folder)
+
+    return combined_df, df_history
+
+
+
 
 if __name__ == '__main__' :
     
@@ -244,12 +317,10 @@ if __name__ == '__main__' :
 
     SCALER_DIR = os.getenv('SCALER_DIR')
     
-    scaler = ECDFScaler.load(os.path.join(SCALER_DIR, "ecdf_scaler.pkl"))
-
     MODEL_DIR = os.getenv('MODEL_DIR')
     model_files = [
-        'resnet_18_256_scaled_final.pth',
-        'VIT_72.pth',
+        #'resnet_18_256_scaled_final.pth',
+        'resnet_multilabel2.pth',
     ]
     model_paths = [os.path.join(MODEL_DIR, f) for f in model_files]
 
@@ -259,4 +330,4 @@ if __name__ == '__main__' :
 
     data = get_fmp_data(symbol = symbol, interval=interval, APIKEY=APIKEY)
 
-    print(inference_pipeline(model_paths, data, n_avg= 5, model_paths_not_normalized = model_paths_not_normalized))
+    print(inference_pipeline(model_paths, data, n_avg= 1, model_paths_not_normalized = model_paths_not_normalized)[0])

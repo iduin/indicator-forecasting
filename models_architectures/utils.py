@@ -1,4 +1,4 @@
-def load_model_safely(model, state_dict):
+def load_model_safely(model, state_dict, verbose = False):
     model_keys = set(model.state_dict().keys())
     loaded_keys = set(state_dict.keys())
 
@@ -9,7 +9,8 @@ def load_model_safely(model, state_dict):
 
     # Case 1: Loaded keys missing 'model.' prefix
     if all("model." + k in model_keys for k in loaded_keys):
-        print("[INFO] Adding 'model.' prefix to loaded keys.")
+        if verbose :
+            print("[INFO] Adding 'model.' prefix to loaded keys.")
         state_dict = {"model." + k: v for k, v in state_dict.items()}
         model.load_state_dict(state_dict)
         return model
@@ -18,7 +19,8 @@ def load_model_safely(model, state_dict):
     if all(k.startswith("model.") for k in loaded_keys):
         stripped_state_dict = {k.replace("model.", "", 1): v for k, v in state_dict.items()}
         if set(stripped_state_dict.keys()) == model_keys:
-            print("[INFO] Stripping 'model.' prefix from loaded keys.")
+            if verbose :
+                print("[INFO] Stripping 'model.' prefix from loaded keys.")
             model.load_state_dict(stripped_state_dict)
             return model
 
@@ -26,7 +28,8 @@ def load_model_safely(model, state_dict):
     if all(k.startswith("base_model.") for k in loaded_keys):
         converted_state_dict = {k.replace("base_model.", "model.", 1): v for k, v in state_dict.items()}
         if set(converted_state_dict.keys()) == model_keys:
-            print("[INFO] Renaming 'base_model.' prefix to 'model.' in loaded keys.")
+            if verbose :
+                print("[INFO] Renaming 'base_model.' prefix to 'model.' in loaded keys.")
             model.load_state_dict(converted_state_dict)
             return model
 
@@ -34,7 +37,8 @@ def load_model_safely(model, state_dict):
     if all(k.startswith("model.") for k in loaded_keys) and all(k.startswith("base_model.") for k in model_keys):
         converted_state_dict = {k.replace("model.", "base_model.", 1): v for k, v in state_dict.items()}
         if set(converted_state_dict.keys()) == model_keys:
-            print("[INFO] Renaming 'model.' prefix to 'base_model.' in loaded keys.")
+            if verbose :
+                print("[INFO] Renaming 'model.' prefix to 'base_model.' in loaded keys.")
             model.load_state_dict(converted_state_dict)
             return model
 
