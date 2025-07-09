@@ -31,7 +31,7 @@ def load_json_list(env_var):
         raise ValueError(f"Invalid JSON in environment variable '{env_var}': {e}")
     
 
-def clean_filename_keep_ext_conditional(filename):
+def clean_filename_keep_ext(filename):
     name, ext = os.path.splitext(filename)
     if name.count('_') >= 2:
         name = re.sub(r'_[^_]+$', '', name)

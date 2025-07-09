@@ -22,8 +22,8 @@ import shutil
 
 
 def draw_data (df, csv_path, max_size = 285, min_size = 35) :
-    if len(df) > min_size :
-        size = np.random.randint(min_size, min(max_size, len(df)))
+    if len(df) >= min_size :
+        size = np.random.randint(min_size, 1 + min(max_size, len(df)))
         img_df = df.tail(size)
         img_df.to_csv(csv_path)
         return img_df
@@ -62,8 +62,8 @@ def aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, al
         for i in range(all_labels.shape[1]):
             agg_dict[f'label_{i}'] = 'mean'  # or 'first' if you want
     for i in range(all_preds.shape[1]):
-        agg_dict[f'prob_{i}'] = 'mean'  # average probs
-        agg_dict[f'pred_{i}'] = 'mean'  # average preds (will recalc anyway)
+        agg_dict[f'prob_{i}'] = 'median'  # more robust to outliers
+        agg_dict[f'pred_{i}'] = 'median'  # average preds (will recalc anyway)
 
     # For 'sheet' and 'len', take first occurrence (or mode if you prefer)
     agg_dict['sheet'] = 'first'
