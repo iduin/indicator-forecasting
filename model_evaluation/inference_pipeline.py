@@ -105,7 +105,7 @@ def prepare_augmented_df(data, indics=None, n_avg=5, temp_folder='temp_data', sy
         df_history = indicator.df
     else :
         df_history = data
-    mask = df_history.map(lambda x: pd.isna(x) or x == 0).any(axis=1)
+    mask = df_history[indics].map(lambda x: pd.isna(x) or x == 0).any(axis=1)
     df = df_history.loc[~mask].reset_index(drop=True)
 
     if not symbol :
@@ -330,4 +330,4 @@ if __name__ == '__main__' :
 
     data = get_fmp_data(symbol = symbol, interval=interval, APIKEY=APIKEY)
 
-    print(inference_pipeline(model_paths, data, n_avg= 1, model_paths_not_normalized = model_paths_not_normalized)[0])
+    print(inference_pipeline(model_paths, data, n_avg= 9, model_paths_not_normalized = model_paths_not_normalized)[0])
