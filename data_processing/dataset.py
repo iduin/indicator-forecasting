@@ -14,7 +14,7 @@ import random
 from general_utils import clean_filename_keep_ext
 
 class TimeSeriesGraphDataset(Dataset):
-    def __init__(self, image_dir, labels_dict = None, transform=None):
+    def __init__(self, image_dir, labels_dict = None, transform=None, use_one_hot_labels=True):
         self.image_dir = image_dir
         self.labels_dict = labels_dict
         if labels_dict is not None:            

@@ -33,6 +33,33 @@ def load_model_resnet_18 (path, device = DEVICE) :
     return model
 
 
+class Resnet_18_Multihead(nn.Module):
+    def __init__(self, num_heads=6, num_classes_per_head=4, weights=ResNet18_Weights.DEFAULT):
+        super(Resnet_18_Multihead, self).__init__()
+        self.base_model = models.resnet18(weights=weights)
+        
+        # Save the in_features **before** replacing the FC layer
+        in_features = self.base_model.fc.in_features
+        
+        # Remove the final classification layer
+        self.base_model.fc = nn.Identity()
+        
+        # Create one classification head per indicator (each with 4 classes)
+        self.heads = nn.ModuleList([
+            nn.Linear(in_features, num_classes_per_head) 
+            for _ in range(num_heads)
+        ])
+
+    def forward(self, x):
+        features = self.base_model(x)  # shape: [batch_size, 512]
+        
+        # Apply each head separately → list of [batch_size, num_classes_per_head]
+        outputs = [head(features) for head in self.heads]
+        
+        # Stack into shape: [batch_size, num_heads, num_classes_per_head]
+        outputs = torch.stack(outputs, dim=1)
+        
+        return outputs
 
 if __name__ == '__main__' :
 

@@ -16,6 +16,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from data_processing.preprocessing import ECDFScaler
 from dotenv import load_dotenv
+from general_utils import load_json_list
 
 
 def plot_rgb(data, names, pixel_size=256, dpi=100, scaler = None):
@@ -205,7 +206,7 @@ if __name__ == "__main__":
     train_synth_sheets = ['EURUSDm1', 'EURUSDm5_p1', 'EURUSDh1_p1', 'CAC-40h4_p1', 'CAC-40d1_p1', 'Ss1', 'Ss2', 'Ss3']
     test_synth_sheets = ['EURUSDm5_p2','EURUSDh1_p2', 'CAC-40h4_p2', 'CAC-40d1_p2', 'Ss4', 'Ss5']
 
-    indics = ['MACD (12,26,9)', 'STOCH-R (14)', 'STOCH-RL (15,15,1)', 'RSI (14)', 'ADX (14)', 'CCI (20)']
+    indics = load_json_list('INDICS')
 
     SCALER_DIR = os.getenv('SCALER_DIR')
     

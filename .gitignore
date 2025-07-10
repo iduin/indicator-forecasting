@@ -12,6 +12,7 @@ __pycache__/
 # HTML files
 *.html
 *png.png
+*.zip
 
 # Poetry config files
 poetry.lock
