@@ -21,8 +21,21 @@ from general_utils import load_json_list
 
 def plot_rgb(data, names, pixel_size=256, dpi=100, scaler = None):
     """
-    Trace les séries par groupe de 3 en RGB, et sauvegarde une image exacte en pixels (ex: 256x256),
-    en contrôlant la taille via figsize + dpi. Aucun buffer utilisé.
+    Plot groups of 3 time series as RGB channels and save an exact pixel-sized image.
+
+    Each group of three series is plotted in red, green, and blue respectively,
+    stacked vertically in the figure. The figure size is controlled via pixel size and DPI,
+    ensuring no interpolation or buffer artifacts.
+
+    Args:
+        data (pd.DataFrame or np.ndarray): Time series data with columns corresponding to names.
+        names (list of str): List of column names in `data` to plot.
+        pixel_size (int, optional): Size in pixels for width and height of the output figure. Default is 256.
+        dpi (int, optional): Dots per inch for figure resolution. Default is 100.
+        scaler (object with .transform method, optional): Optional scaler to apply to data before plotting.
+
+    Returns:
+        matplotlib.figure.Figure: The created matplotlib figure object.
     """
     plt.style.use('dark_background')
 
@@ -57,13 +70,20 @@ def plot_rgb(data, names, pixel_size=256, dpi=100, scaler = None):
 
 def draw_one(data, min_size, max_size, pred, graph_size):
     """
-    Draw data in the serie
-    :param data: the list of values (list) initial data
-    :param min_size: the minimum size of the data to draw
-    :param max_size: the maximum size of the data to draw
-    :param pred: the number of values to predict in percentage
-    :param graph_size: the size of the graph (number of points)
-    :return: the drawn serie
+    Extract a random sub-series of data for drawing.
+
+    Selects a contiguous segment of the data with random length between `min_size` and `max_size`,
+    starting at a random valid position. This segment is intended for prediction tasks.
+
+    Args:
+        data (pd.DataFrame): DataFrame containing time series data.
+        min_size (int): Minimum length of the extracted segment.
+        max_size (int): Maximum length of the extracted segment.
+        pred (int): Percentage of points reserved for prediction (currently unused in this function).
+        graph_size (int): Target size for graphing (currently unused in this function).
+
+    Returns:
+        pd.DataFrame: Extracted segment of the input data.
     """
     # Draw a size with an uniform distribution between min_size and max_size
     size = np.random.randint(min_size, max_size)
@@ -71,49 +91,34 @@ def draw_one(data, min_size, max_size, pred, graph_size):
     start = np.random.randint(0, data.shape[0] - size + 1)
     # Get the data to draw
     new_data = data.iloc[start:start + size]
-    '''new_data = []
-    for serie in data:
-        serie = serie[start:start + size]
-        # Resample the data to the graph_size + Pred (%) using linear interpolation
-        si = (np.round((1.0 + pred / 100) * graph_size)).astype(int)
-        serie = np.interp(np.linspace(0, 1, si), np.linspace(0, 1, len(serie)), serie)
-        new_data.append(serie)'''
     return new_data
-
-######
-
-def plot_one(data, names, size=256):
-    """
-    Draws a time series using matplotlib.
-    
-    :param data: 2D array-like (num_samples x num_series), each column is a series
-    :param names: List of names for the series
-    :param size: Size (in pixels) of the output image (assumed square)
-    :return: A matplotlib figure object
-    """
-    # Set style before creating the figure
-    plt.style.use('dark_background')
-
-    # Create figure with desired size in inches (DPI = 100)
-    fig = plt.figure(figsize=(size / 100, size / 100), dpi=100)
-
-    # Plot each time series
-    for values, name in zip(data.T, names):
-        # Normalize values to [0, 1]
-        if np.max(values) != np.min(values):  # Prevent division by zero
-            values = (values - np.min(values)) / (np.max(values) - np.min(values))
-        else:
-            values = np.zeros_like(values)  # flat line if all values are the same
-        plt.plot(values, label=name, linewidth=1)
-
-    # Remove axes and borders
-    plt.axis('off')
-    plt.subplots_adjust(left=0, right=1, top=1, bottom=0)
-
-    return fig
    
 
 def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, min_size = 50, max_size = 300, pred = 15, graph_size = 256, replace = False, test = False, scaler = None, indics = []):
+    """
+    Generate time series graphs from Excel sheets and save as images and CSV files.
+
+    Reads specified sheets from an Excel file, extracts specified indicators,
+    optionally cleans the output directory, and creates multiple cropped and scaled
+    time series graphs saved as PNG images and corresponding CSV files.
+
+    Args:
+        file_path (str): Path to the input Excel file.
+        base_folder (str): Directory where output files (images and CSVs) will be saved.
+        sheets (list of str): List of sheet names to process from the Excel file.
+        nb_graphs_per_thousand (int, optional): Number of graphs to generate per 1000 data points. Default 300.
+        min_size (int, optional): Minimum size of a cropped time series segment. Default 50.
+        max_size (int, optional): Maximum size of a cropped time series segment. Default 300.
+        pred (int, optional): Percentage of points reserved for prediction at the end of each segment. Default 15.
+        graph_size (int, optional): Size (in pixels) of output graph images. Default 256.
+        replace (bool, optional): If True, clears existing files in the output directory before processing. Default False.
+        test (bool, optional): If True, uses test mode (different indexing logic). Default False.
+        scaler (object with .transform method, optional): Optional scaler to normalize data before plotting.
+        indics (list of str, optional): List of indicator column names to extract from sheets.
+
+    Returns:
+        None
+    """
     # Read the excel file
     data = pd.ExcelFile(file_path)
     # get all sheet names

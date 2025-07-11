@@ -14,6 +14,14 @@ import random
 from general_utils import clean_filename_keep_ext
 
 class TimeSeriesGraphDataset(Dataset):
+    """
+    Dataset for loading time series graph images and optionally their labels.
+
+    Args:
+        image_dir (str): Directory containing images (and optionally CSV files).
+        labels_dict (dict, optional): Dictionary mapping image filenames to label vectors.
+        transform (callable, optional): Transformations to apply on images.
+    """
     def __init__(self, image_dir, labels_dict = None, transform=None, use_one_hot_labels=True):
         self.image_dir = image_dir
         self.labels_dict = labels_dict
@@ -57,6 +65,17 @@ class TimeSeriesGraphDataset(Dataset):
             return image, date, length, img_name
 
 def compute_mean_std(image_dir, img_size=256):
+    """
+    Compute mean and std of all images in the directory for normalization.
+
+    Args:
+        image_dir (str): Directory containing images.
+        img_size (int): Size to resize images for calculation.
+
+    Returns:
+        mean (list of float): Mean per channel.
+        std (list of float): Standard deviation per channel.
+    """
     transform = transforms.Compose([
         transforms.Resize((img_size, img_size)),
         transforms.ToTensor()
@@ -79,6 +98,21 @@ def compute_mean_std(image_dir, img_size=256):
     return mean.tolist(), std.tolist()
 
 def get_dataloader(image_dir, labels_path = None, batch_size=32, shuffle=True, img_size=256, mean = None, std = None):
+    """
+    Creates DataLoader and dataset for time series graph images.
+
+    Args:
+        image_dir (str): Directory with images.
+        labels_path (str, optional): Path to JSON file with labels.
+        batch_size (int): Batch size for DataLoader.
+        shuffle (bool): Whether to shuffle data.
+        img_size (int): Resize dimension for images.
+        mean (list or None): Channel means for normalization.
+        std (list or None): Channel std deviations for normalization.
+
+    Returns:
+        tuple: (DataLoader, Dataset)
+    """
     if labels_path:
         with open(labels_path, 'r') as f:
             labels_dict = json.load(f)
@@ -102,12 +136,31 @@ def get_dataloader(image_dir, labels_path = None, batch_size=32, shuffle=True, i
 
     return dataloader, dataset
 
-def get_train_val_loaders(train_image_dir, train_labels_path, test_image_dir, test_labels_path = None, train_batch_size=32, img_size=256, adapt_scaling = False, val_set_ratio = 0.25):
+def get_train_val_loaders(train_image_dir, train_labels_path, test_image_dir, test_labels_path = None, train_batch_size=32, img_size=256, adapt_scaling = False, val_set_ratio = 0.25, mean = None, std = None):
+    """
+    Prepare training and validation DataLoaders.
+
+    Args:
+        train_image_dir (str): Directory for training images.
+        train_labels_path (str): JSON file path for training labels.
+        test_image_dir (str): Directory for test images.
+        test_labels_path (str, optional): JSON file path for test labels.
+        train_batch_size (int): Batch size for training.
+        img_size (int): Image resize dimension.
+        adapt_scaling (bool): Whether to compute mean/std from train images (incompatible with mean or std).
+        val_set_ratio (float): Ratio of validation set from test dataset.
+        mean (float): Define mean for images rescaling (incompatible with adapt_scaling).
+        std (float): Define standard deviation for images rescaling (incompatible with adapt_scaling).
+
+    Returns:
+        tuple: train_loader, train_dataset, val_loader, val_dataset
+    """
+
+    if adapt_scaling and (mean or std) :
+        raise ValueError("Cannot use adapt_scaling with defined mean or std.")    
 
     if adapt_scaling :
         mean, std = compute_mean_std(train_image_dir, img_size= img_size)
-    else :
-        mean, std = None, None
 
     train_loader, train_set = get_dataloader(train_image_dir, labels_path = train_labels_path, batch_size=train_batch_size, shuffle=True, img_size=img_size, mean = mean, std = std)
     _, test_set = get_dataloader(test_image_dir, labels_path = test_labels_path, batch_size = 1, shuffle=False, img_size=img_size, mean = mean, std = std)
@@ -121,6 +174,20 @@ def get_train_val_loaders(train_image_dir, train_labels_path, test_image_dir, te
 
 
 def label_data (image_dir, labels_path, indics) :
+    """
+    Label time series based on CSV data changes.
+
+    For each CSV file in image_dir, computes binary labels indicating
+    whether each indicator increased after 15 time steps.
+
+    Args:
+        image_dir (str): Directory containing .csv and .png files.
+        labels_path (str): Path to save JSON label dictionary.
+        indics (list): List of indicator column names to label.
+
+    Saves:
+        JSON file with labels mapping image filenames to label vectors.
+    """
     # Initialize label dictionary
     labels = {}
 
@@ -163,17 +230,20 @@ def label_data (image_dir, labels_path, indics) :
     print(f"Saved labels for {len(labels)} images to {labels_path}")
 
 def analyze_indicator_labels(data):
-
     """
-    Analyze labels for a multi-label classification task.
-    
+    Analyze multi-label classification indicators from dataset or arrays.
+
     Args:
-        data: Either a PyTorch Dataset (returning label tensors) 
-              OR a NumPy array / PyTorch tensor of shape (N, 6)
-    
+        data: Dataset (returns labels), or NumPy array or Torch tensor (N x num_indicators).
+
     Returns:
-        total_samples, label_matrix, indicator_counts, indicator_percentages,
-        labels_per_sample, multi_label_dist, multi_label_percent
+        total_samples (int): Number of samples.
+        label_matrix (np.ndarray): Binary label matrix.
+        indicator_counts (np.ndarray): Count of positives per indicator.
+        indicator_percentages (np.ndarray): Percentage positives per indicator.
+        labels_per_sample (np.ndarray): Number of positive labels per sample.
+        multi_label_dist (Counter): Frequency distribution of positives per sample.
+        multi_label_percent (dict): Percent distribution of positives per sample.
     """
     label_matrix = []
 
@@ -208,6 +278,14 @@ def analyze_indicator_labels(data):
 
 
 def plot_statistical_analysis (data, indics, name="Dataset") :
+    """
+    Plot label distribution and correlation heatmap for indicator labels.
+
+    Args:
+        data: Dataset or label array/tensor.
+        indics (list): List of indicator names.
+        name (str): Name for plot titles.
+    """
     print(f"\n📊 {name} - Statistical Label Analysis")
 
     total_samples, label_matrix, indicator_counts, indicator_percentages, _, multi_label_dist, multi_label_percent = analyze_indicator_labels(data)

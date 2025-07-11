@@ -22,6 +22,18 @@ import shutil
 
 
 def draw_data (df, csv_path, max_size = 285, min_size = 35) :
+    """
+    Select a random subset of recent rows from a DataFrame and save to CSV.
+
+    Args:
+        df (pd.DataFrame): Input data frame to sample from.
+        csv_path (str): File path where the sampled data will be saved as CSV.
+        max_size (int, optional): Maximum number of rows to sample. Defaults to 285.
+        min_size (int, optional): Minimum number of rows required to perform sampling. Defaults to 35.
+
+    Returns:
+        pd.DataFrame or None: Sampled subset of DataFrame if enough data, else None.
+    """
     if len(df) >= min_size :
         size = np.random.randint(min_size, 1 + min(max_size, len(df)))
         img_df = df.tail(size)
@@ -31,6 +43,30 @@ def draw_data (df, csv_path, max_size = 285, min_size = 35) :
         print("Data too small")
 
 def aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, all_lens, all_sheet, threshold=0.5):
+    """
+    Aggregate model predictions, probabilities, and labels grouped by date.
+
+    For each date, calculates mean or median aggregation over multiple predictions and recalculates
+    binary predictions based on averaged probabilities using the given threshold.
+
+    Args:
+        all_labels (np.ndarray or None): True labels array of shape (N, num_classes).
+        all_preds (np.ndarray): Predicted labels array of shape (N, num_classes).
+        all_probs (np.ndarray): Predicted probabilities array of shape (N, num_classes).
+        all_dates (np.ndarray): Dates corresponding to each prediction, shape (N,).
+        all_lens (np.ndarray): Length feature values, shape (N,).
+        all_sheet (np.ndarray): Sheet or source identifiers, shape (N,).
+        threshold (float, optional): Probability threshold for binary classification. Defaults to 0.5.
+
+    Returns:
+        tuple: Aggregated (labels, recalculated_preds, averaged_probs, dates, lens, sheets), where
+            - labels: np.ndarray or None of aggregated true labels,
+            - recalculated_preds: np.ndarray of aggregated binary predictions,
+            - averaged_probs: np.ndarray of aggregated probabilities,
+            - dates: np.ndarray of aggregated dates,
+            - lens: np.ndarray of aggregated length values,
+            - sheets: np.ndarray of aggregated sheet/source identifiers.
+    """
     # Flatten all arrays as needed
     dates = all_dates.flatten()
     sheets = all_sheet.flatten()
@@ -91,6 +127,22 @@ def aggregate_by_date_consistent(all_labels, all_preds, all_probs, all_dates, al
 
 
 def prepare_augmented_df(data, indics=None, n_avg=5, temp_folder='temp_data', symbol = None):
+    """
+    Prepare augmented data with technical indicators and save multiple CSV subsets for augmentation.
+
+    If the requested indicators do not exist in the data, calculates them. Saves multiple subsets of the data
+    as CSV files in a temporary folder for downstream augmentation or inference.
+
+    Args:
+        data (pd.DataFrame): Input financial or time series data.
+        indics (list[str], optional): List of technical indicator column names to use. Defaults to common indicators.
+        n_avg (int, optional): Number of augmented samples (CSV files) to generate. Defaults to 5.
+        temp_folder (str, optional): Directory where CSV files will be saved. Defaults to 'temp_data'.
+        symbol (str or None, optional): Symbol or identifier for naming files. If None, tries to infer from data.
+
+    Returns:
+        pd.DataFrame: DataFrame with calculated indicators.
+    """
     if indics is None:
         indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
 
@@ -121,7 +173,24 @@ def prepare_augmented_df(data, indics=None, n_avg=5, temp_folder='temp_data', sy
     return df_history
 
 def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, temp_folder='temp_data', mean = None, std = None, labels_path= None):
+    """
+    Run inference using a trained model on augmented datasets stored as CSV and generate corresponding images.
 
+    Converts CSV data to images with plotted indicators, loads them into a DataLoader, and runs model inference.
+
+    Args:
+        model (torch.nn.Module): Trained model to perform inference.
+        img_size (int): Size of images expected by the model.
+        indics (list[str], optional): List of indicators to plot. Defaults to common indicators.
+        scaler (object, optional): Scaler used to normalize data before plotting. Defaults to None.
+        temp_folder (str, optional): Directory containing CSV files to process. Defaults to 'temp_data'.
+        mean (float or None, optional): Mean for normalization. Defaults to None.
+        std (float or None, optional): Standard deviation for normalization. Defaults to None.
+        labels_path (str or None, optional): Path to label CSVs if available. Defaults to None.
+
+    Returns:
+        tuple: Outputs of inference including labels, predictions, probabilities, dates, lengths, and sheets.
+    """
     if indics is None:
         indics = ['macd', 'stochRf', 'stochRL', 'rsi', 'adx', 'cci']
 
@@ -141,6 +210,20 @@ def infer_model_on_prepared_data(model, img_size, indics = None, scaler = None, 
 load_dotenv()
 
 def extract_config (model_path, scaler_dir = os.getenv('SCALER_DIR'), model_paths_not_normalized = load_json_list("MODELS_NOT_NORM")) :
+    """
+    Load a model and extract its associated configuration parameters for inference.
+
+    Determines data scaling, normalization parameters, and image size based on model naming conventions
+    and stored files.
+
+    Args:
+        model_path (str): Path to the saved model file.
+        scaler_dir (str, optional): Directory containing scaler objects. Defaults to environment variable.
+        model_paths_not_normalized (list or None, optional): List of models that don't require normalization. Defaults to environment variable.
+
+    Returns:
+        dict: Configuration dictionary including model, scaler, mean, std, and image size.
+    """
     config = {}
     model = load_model_general(model_path)
     config["model"] = model
@@ -184,6 +267,29 @@ def inference_pipeline(
     labels_path= None,
     symbol = None
 ):
+    """
+    Run a complete inference pipeline over multiple models using augmented data.
+
+    For each model:
+    - Extract configuration and normalization info.
+    - Run inference on augmented datasets.
+    - Aggregate predictions by date.
+    - Combine results across models into a single DataFrame.
+
+    Args:
+        model_paths (list[str]): List of file paths to trained models.
+        data (pd.DataFrame): Raw input data for augmentation.
+        n_avg (int, optional): Number of augmentations per model. Defaults to 5.
+        indics (list[str], optional): List of indicators to use. Defaults to common indicators.
+        temp_folder (str, optional): Folder for temporary augmented data. Defaults to 'temp_data'.
+        clean (bool, optional): Whether to clear temporary folder before and after. Defaults to True.
+        model_paths_not_normalized (list, optional): Models that do not require normalization. Defaults to None.
+        labels_path (str, optional): Path to label data if available. Defaults to None.
+        symbol (str, optional): Symbol name for file naming. Defaults to None.
+
+    Returns:
+        tuple: Combined DataFrame of model results, and augmented history DataFrame.
+    """
     if clean:
         clean_folder(temp_folder)
 
@@ -252,6 +358,25 @@ def inference_pipeline_preloaded(
     labels_path = None,
     symbol = None
 ):
+    """
+    Run inference pipeline for a list of preloaded model configurations on augmented data.
+
+    Similar to `inference_pipeline`, but accepts preloaded model config dicts instead of model paths.
+
+    Args:
+        model_configs (list[dict]): List of model configuration dictionaries.
+        data (pd.DataFrame): Raw input data for augmentation.
+        n_avg (int, optional): Number of augmentations per model. Defaults to 5.
+        indics (list[str], optional): List of indicators to use. Defaults to common indicators.
+        temp_folder (str, optional): Folder for temporary augmented data. Defaults to 'temp_data'.
+        clean (bool, optional): Whether to clear temporary folder before and after. Defaults to True.
+        model_paths_not_normalized (list, optional): Models that do not require normalization. Defaults to None.
+        labels_path (str, optional): Path to label data if available. Defaults to None.
+        symbol (str, optional): Symbol name for file naming. Defaults to None.
+
+    Returns:
+        tuple: Combined DataFrame of model results, and augmented history DataFrame.
+    """
     if clean:
         clean_folder(temp_folder)
 

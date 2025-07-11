@@ -10,7 +10,22 @@ from dotenv import load_dotenv
 from models_architectures.utils import load_model_safely
 
 class CreatePatchesLayer(torch.nn.Module):
-    """Custom PyTorch Layer to Extract Patches from Images."""
+    """
+    PyTorch layer to extract non-overlapping or overlapping patches from input images.
+
+    This layer uses `torch.nn.Unfold` to convert 2D spatial image regions into flattened patch vectors,
+    which can then be processed by transformer-based models or other sequence models.
+
+    Args:
+        patch_size (int): Size of each square patch (in pixels).
+        strides (int): Stride between consecutive patches (in pixels).
+
+    Forward Input:
+        images (torch.Tensor): Input tensor of shape (batch_size, channels, height, width).
+
+    Forward Output:
+        torch.Tensor: Output tensor of shape (batch_size, num_patches, patch_dim).
+    """
 
     def __init__(
     self,
@@ -29,8 +44,24 @@ class CreatePatchesLayer(torch.nn.Module):
         return patched_images.permute((0, 2, 1))
 
 class PatchEmbeddingLayer(torch.nn.Module):
-    """Positional Embedding Layer for Images of Patches."""
+    """
+    Embeds image patches into a dense vector space with positional information for transformer models.
 
+    This layer projects flattened image patches into a fixed embedding dimension, adds a learnable 
+    classification token, and injects positional embeddings to retain spatial information.
+
+    Args:
+        num_patches (int): Total number of patches extracted from the image.
+        patch_size (int): Size of each patch (height and width).
+        embed_dim (int): Dimension of the embedding space.
+        device (torch.device): Device on which tensors should be allocated.
+
+    Forward Input:
+        patches (torch.Tensor): Tensor of shape (batch_size, num_patches, patch_dim).
+
+    Forward Output:
+        torch.Tensor: Tensor of shape (batch_size, num_patches + 1, embed_dim), including class token.
+    """
     def __init__(
         self,
         num_patches: int,
@@ -70,13 +101,27 @@ class PatchEmbeddingLayer(torch.nn.Module):
         ) + position_embeddings.expand(batch_size, -1, -1)
         return encoded_patches
 
+
 def create_mlp_block(
     input_features: int,
     output_features: list[int],
     activation_function: Type[torch.nn.Module],
     dropout_rate: float,
 ) -> torch.nn.Module:
-    """Create a Feed Forward Network for the Transformer Layer."""
+    """
+    Create a fully connected feed-forward block (MLP) with optional non-linearity and dropout.
+
+    Commonly used in transformer models after attention layers to introduce non-linear transformations.
+
+    Args:
+        input_features (int): Size of the input features.
+        output_features (list[int]): List of output feature sizes for each layer in the MLP.
+        activation_function (Type[torch.nn.Module]): Activation function class to use (e.g., nn.GELU).
+        dropout_rate (float): Dropout probability between layers.
+
+    Returns:
+        torch.nn.Sequential: Composed MLP block.
+    """
     layer_list = []
     for idx in range(  # pylint: disable=consider-using-enumerate
         len(output_features)
@@ -98,8 +143,23 @@ def create_mlp_block(
     return torch.nn.Sequential(*layer_list)
 
 class TransformerBlock(torch.nn.Module):
-    """Transformer Block Layer."""
+    """
+    Single transformer encoder block consisting of multi-head self-attention, 
+    feed-forward network, layer normalization, and residual connections.
 
+    Args:
+        num_heads (int): Number of attention heads.
+        key_dim (int): Dimension of the key and value vectors.
+        embed_dim (int): Embedding dimension of the input and output.
+        ff_dim (int): Hidden dimension of the feed-forward sub-layer.
+        dropout_rate (float): Dropout probability applied after attention and feed-forward layers.
+
+    Forward Input:
+        inputs (torch.Tensor): Tensor of shape (batch_size, sequence_length, embed_dim).
+
+    Forward Output:
+        torch.Tensor: Tensor of same shape as input.
+    """
     def __init__(
         self,
         num_heads: int,
@@ -150,8 +210,29 @@ class TransformerBlock(torch.nn.Module):
         return output
 
 class ViTMultiLabelClassifierModel(torch.nn.Module):
-  """ViT Model for Multi-Label Image Classification."""
+  """
+    Vision Transformer (ViT) model adapted for multi-label image classification.
 
+    The model processes images by splitting them into patches, embedding them,
+    applying multiple transformer encoder layers, and predicting multiple independent class probabilities.
+
+    Args:
+        num_transformer_layers (int): Number of transformer encoder blocks.
+        embed_dim (int): Dimensionality of the patch embeddings.
+        feed_forward_dim (int): Hidden size of the feed-forward layers in each transformer block.
+        num_heads (int): Number of self-attention heads.
+        patch_size (int): Size of the square image patches.
+        num_patches (int): Number of patches the image is split into.
+        mlp_head_units (list[int]): List of hidden units for the classification head MLP.
+        num_classes (int): Number of independent labels to predict.
+        device (torch.device): Device on which the model operates.
+
+    Forward Input:
+        x (torch.Tensor): Batch of images of shape (batch_size, channels, height, width).
+
+    Forward Output:
+        torch.Tensor: Logits of shape (batch_size, num_classes) for multi-label classification.
+    """
   def __init__(
       self,
       num_transformer_layers: int,
@@ -202,6 +283,18 @@ class ViTMultiLabelClassifierModel(torch.nn.Module):
 import math
 
 def infer_vit_config(state_dict):
+    """
+    Infer essential configuration parameters for a Vision Transformer model from a saved state_dict.
+
+    Automatically determines key hyperparameters such as embedding dimension, number of patches,
+    number of transformer layers, feed-forward dimension, and patch size.
+
+    Args:
+        state_dict (dict): State dictionary containing the pretrained model weights.
+
+    Returns:
+        dict: Dictionary of inferred configuration parameters.
+    """
     config = {}
 
     # --- Position embedding ---
@@ -247,6 +340,19 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 def load_model_VIT(path, device=DEVICE):
+    """
+    Load a Vision Transformer (ViT) model for multi-label classification from a saved checkpoint.
+
+    The function infers model architecture from the checkpoint, restores weights,
+    and returns the model ready for evaluation or further training.
+
+    Args:
+        path (str): Path to the saved PyTorch model checkpoint (.pth file).
+        device (torch.device, optional): Device to map the model and weights to.
+
+    Returns:
+        ViTMultiLabelClassifierModel: Loaded ViT model with weights.
+    """
     state_dict = torch.load(path, map_location=device)
 
     config = infer_vit_config(state_dict)

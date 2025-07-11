@@ -13,6 +13,20 @@ from datetime import datetime, time
 from general_utils import clean_filename_keep_ext
 
 def combine_arrays_to_df(arrays, columns=[]):
+    """
+    Combine multiple numpy arrays horizontally and convert to a pandas DataFrame.
+
+    Args:
+        arrays (list of array-like): List of arrays to combine. Each must have the same number of rows.
+        columns (list of str, optional): List of column names for the resulting DataFrame.
+            If not provided or shorter than total columns, default names will be appended.
+
+    Returns:
+        pd.DataFrame: DataFrame combining all arrays with specified column names.
+
+    Raises:
+        ValueError: If the input arrays have differing numbers of rows.
+    """
     arrays = [np.asarray(arr) for arr in arrays]
     
     # Validate same number of rows
@@ -32,10 +46,42 @@ def combine_arrays_to_df(arrays, columns=[]):
     return pd.DataFrame(combined, columns=columns)
 
 def format_datetime_column(df, column_name):
+    """
+    Format a datetime column in a DataFrame to ISO 8601 string format without timezone info.
+
+    Args:
+        df (pd.DataFrame): DataFrame containing the datetime column.
+        column_name (str): Name of the datetime column to format.
+
+    Returns:
+        pd.DataFrame: The DataFrame with the formatted datetime column.
+    """
     df[column_name] = df[column_name].dt.strftime('%Y-%m-%dT%H:%M:%S%z')
     return df
 
 def inference(model, test_loader, indics=None, DEVICE=torch.device("cuda" if torch.cuda.is_available() else "cpu"), verbose = True):
+    """
+    Run inference on a test dataset using the provided model and dataloader.
+
+    Args:
+        model (torch.nn.Module): The trained model to use for inference.
+        test_loader (DataLoader): DataLoader providing test batches.
+        indics (list of str, optional): List of indicator names (unused internally, for interface consistency).
+        DEVICE (torch.device, optional): Device on which to run inference (default: CUDA if available).
+        verbose (bool, optional): Whether to display a progress bar.
+
+    Returns:
+        tuple:
+            - all_labels (np.ndarray or None): True labels stacked from batches, or None if unavailable.
+            - all_preds (np.ndarray): Predicted labels (binary).
+            - all_probs (np.ndarray): Predicted probabilities.
+            - all_dates (np.ndarray): Dates corresponding to each sample, shape (N, 1).
+            - all_lens (np.ndarray): Lengths associated with each sample, shape (N, 1).
+            - all_sheet (np.ndarray): Sheet/file identifiers, shape (N, 1).
+
+    Raises:
+        ValueError: If batch size or structure is unexpected.
+    """
     model.eval()
 
     all_labels = []
@@ -97,6 +143,20 @@ def inference(model, test_loader, indics=None, DEVICE=torch.device("cuda" if tor
     
 
 def inference_df(model, test_loader, indics, DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu"), output_path= None) :
+    """
+    Perform inference and return results as a sorted pandas DataFrame.
+    Optionally saves the results to an Excel file with sheets grouped by 'Sheet' column.
+
+    Args:
+        model (torch.nn.Module): Trained model for inference.
+        test_loader (DataLoader): DataLoader with test data.
+        indics (list of str): List of indicator names for labeling prediction columns.
+        DEVICE (torch.device, optional): Device to run inference on (default: CUDA if available).
+        output_path (str, optional): If provided, saves the DataFrame to an Excel file at this path.
+
+    Returns:
+        pd.DataFrame: DataFrame with columns including Date, labels (if available), predictions, length, and Sheet.
+    """
     label_columns =  ['label ' + i for i in indics]
     pred_columns =  ['pred ' + i for i in indics]
     all_labels, all_preds, _, all_dates, all_lens,  all_sheet = inference (model, test_loader, indics, DEVICE)
@@ -128,6 +188,24 @@ def inference_df(model, test_loader, indics, DEVICE = torch.device("cuda" if tor
 
 
 def inference_merged_df(model, test_loader, indics, raw_data_path, DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu"), output_path= None) :
+    """
+    Perform inference and merge predictions with raw data from Excel sheets, saving the merged data to Excel.
+
+    Args:
+        model (torch.nn.Module): Trained model for inference.
+        test_loader (DataLoader): DataLoader with test data.
+        indics (list of str): Indicator names for labeling prediction columns.
+        raw_data_path (str): Path to the Excel file with raw data sheets to merge.
+        DEVICE (torch.device, optional): Device for running inference (default: CUDA if available).
+        output_path (str, optional): Path to save the merged Excel file. If None, does not save.
+
+    Returns:
+        pd.DataFrame: The merged DataFrame of predictions and raw data for the last processed sheet.
+
+    Notes:
+        - Expects raw data Excel sheets to have a 'Date' column; if missing, generates a date range.
+        - Saves Excel with multiple sheets, one per sheet group.
+    """
     label_columns =  ['label ' + i for i in indics]
     pred_columns =  ['pred ' + i for i in indics]
     all_labels, all_preds, _, all_dates, _,  all_sheet = inference (model, test_loader, indics, DEVICE)

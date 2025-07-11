@@ -10,11 +10,22 @@ from dotenv import load_dotenv
 from models_architectures.utils import load_model_safely
 
 class SqueezeNet_Multilabel(nn.Module):
+    """
+    SqueezeNet-based model for multi-label classification.
+
+    This model uses SqueezeNet 1.1 as a feature extractor and replaces the classifier
+    with a new head suitable for predicting multiple independent labels.
+
+    Args:
+        num_classes (int): The number of output labels. Default is 6.
+        weights (torchvision.models.WeightsEnum or None): Pre-trained weights to use. 
+                                                          Default is SqueezeNet1_1_Weights.DEFAULT.
+    """
     def __init__(self, num_classes=6, weights=SqueezeNet1_1_Weights.DEFAULT):
         super(SqueezeNet_Multilabel, self).__init__()
         self.model = models.squeezenet1_1(weights=weights)
-        
-        # Replace the final fully connected layer
+
+        # Replace the classifier to output num_classes scores instead of 1000 classes
         self.model.classifier = nn.Sequential(
             nn.Dropout(p=0.5),
             nn.Conv2d(512, num_classes, kernel_size=1),
@@ -23,18 +34,44 @@ class SqueezeNet_Multilabel(nn.Module):
         )
 
     def forward(self, x):
+        """
+        Forward pass through the network.
+
+        Args:
+            x (torch.Tensor): Input tensor of shape [batch_size, 3, H, W].
+
+        Returns:
+            torch.Tensor: Output logits of shape [batch_size, num_classes].
+        """
         x = self.model(x)
-        return x.view(x.size(0), -1)
+        return x.view(x.size(0), -1)  # Flatten the output to [batch_size, num_classes]
 
 
+# Set the device to GPU if available, else CPU
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def load_model_squeezenet (path, device = DEVICE) :
-    model = SqueezeNet_Multilabel()    
+
+def load_model_squeezenet(path, device=DEVICE):
+    """
+    Loads a pre-trained SqueezeNet multi-label classification model from disk.
+
+    Args:
+        path (str): File path to the saved model weights (.pth file).
+        device (torch.device): Device on which to load the model.
+
+    Returns:
+        SqueezeNet_Multilabel: The loaded model set to evaluation mode.
+    """
+    model = SqueezeNet_Multilabel()
     model = model.to(device)
-    state_dict  = torch.load(path, map_location=DEVICE)
+
+    # Load model state dict from the given path
+    state_dict = torch.load(path, map_location=device)
+
+    # Load safely to avoid key mismatches
     model = load_model_safely(model, state_dict)
-    model.eval()
+
+    model.eval()  # Switch to evaluation mode
     return model
 
 

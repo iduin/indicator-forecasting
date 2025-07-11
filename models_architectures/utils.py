@@ -1,4 +1,21 @@
 def load_model_safely(model, state_dict, verbose = False):
+    """
+    Safely loads a model's state_dict, handling common naming mismatches in keys.
+
+    This function attempts to resolve common key mismatches between the saved state_dict
+    and the model's expected keys, such as missing or extra prefixes like 'model.' or 'base_model.'.
+
+    Args:
+        model (torch.nn.Module): The target model instance to load weights into.
+        state_dict (dict): The state dictionary loaded from a file (torch.load()).
+        verbose (bool): If True, prints information about how keys are being adjusted.
+
+    Returns:
+        torch.nn.Module: The model with loaded weights.
+
+    Raises:
+        RuntimeError: If the state_dict keys do not match the model's keys, even after prefix corrections.
+    """
     model_keys = set(model.state_dict().keys())
     loaded_keys = set(state_dict.keys())
 

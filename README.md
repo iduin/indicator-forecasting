@@ -90,10 +90,10 @@ scaler = ECDFScaler.load(os.path.join(SCALER_DIR,"your_scaler.pkl"))
 
 
 # Create Training Images
-create_graphs(file_name, train_dir, train_sheets, replace=True, indics=INDICS, scaler=scaler)
+create_graphs(excel, train_dir, train_sheets, replace=True, indics=INDICS, scaler=scaler)
 
 # Create Testing Images
-create_graphs(file_name, test_dir, test_sheets, replace=True, test=True, indics=INDICS, scaler=scaler)
+create_graphs(excel, test_dir, test_sheets, replace=True, test=True, indics=INDICS, scaler=scaler)
 ```
 
 ✅ You can adjust:

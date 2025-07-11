@@ -25,6 +25,32 @@ from dotenv import load_dotenv
 sns.set(style="whitegrid")
 
 def plot_full_evaluation_dashboard(y_true, y_pred, y_prob, label_names, save_path=None):
+    """
+    Generate a comprehensive multilabel classification performance dashboard with plots and metrics.
+
+    This function creates a matplotlib figure including:
+      - Bar plots of per-label accuracy, precision, recall, and F1-score.
+      - Confusion matrices (normalized) for up to 6 labels.
+      - ROC curves for each label with AUC scores.
+      - Text summary of macro and micro averaged precision, recall, and F1-score.
+
+    Args:
+        y_true (np.ndarray): Ground truth binary labels, shape (n_samples, n_labels).
+        y_pred (np.ndarray): Predicted binary labels, shape (n_samples, n_labels).
+        y_prob (np.ndarray): Predicted probabilities for positive class, shape (n_samples, n_labels).
+        label_names (list of str): List of label names corresponding to each label index.
+        save_path (str, optional): File path to save the resulting figure as an image. 
+            If None, the figure is only displayed and not saved.
+
+    Returns:
+        None
+
+    Notes:
+        - Assumes binary multilabel classification.
+        - Displays up to 6 confusion matrices due to layout constraints.
+        - The function uses seaborn and matplotlib for visualization.
+        - Save path image is saved at 300 DPI with a tight bounding box.
+    """
     import matplotlib.pyplot as plt
     import seaborn as sns
     import numpy as np

@@ -21,7 +21,26 @@ def train_network(
     min_lr: float = 1e-6,
     export_path: str = None
     ) -> dict:
-    """Train the Network (Multi-label) with early stopping and LR decay."""
+    """
+    Train a multi-label classification model with early stopping and learning rate decay.
+
+    Args:
+        model (torch.nn.Module): The model to train.
+        num_epochs (int): Maximum number of training epochs.
+        optimizer (torch.optim.Optimizer): Optimizer used for training.
+        loss_function (Callable): Loss function to compute training and validation loss.
+        trainloader (torch.utils.data.DataLoader): DataLoader for the training set.
+        validloader (torch.utils.data.DataLoader): DataLoader for the validation set.
+        device (torch.device): Device on which to run the training (CPU or GPU).
+        threshold (float): Threshold for converting predicted probabilities to binary labels.
+        patience (int): Number of epochs with no improvement to wait before early stopping.
+        lr_decay_factor (float): Factor by which to reduce learning rate on plateau.
+        min_lr (float): Minimum learning rate allowed.
+        export_path (str, optional): File path to save the best model. If None, model is not saved.
+
+    Returns:
+        dict: Dictionary containing lists of average training and validation losses per epoch.
+    """
     print("Training Started")
 
     best_val_loss = float('inf')
@@ -107,6 +126,18 @@ def train_network(
 
 
 def plot_loss(train_losses, val_losses, model_name=None, save_path=None):
+    """
+    Plot the training and validation loss curves.
+
+    Args:
+        train_losses (list of float): Training loss values over epochs.
+        val_losses (list of float): Validation loss values over epochs.
+        model_name (str, optional): Name of the model to display in the plot title.
+        save_path (str, optional): If provided, saves the plot to this file path.
+
+    Returns:
+        None
+    """
     sns.set(style='darkgrid', context='notebook', palette='deep')
     
     epochs = list(range(1, len(train_losses) + 1))

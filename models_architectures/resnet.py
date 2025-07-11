@@ -9,56 +9,113 @@ from data_processing.preprocessing import get_pos_weights
 from dotenv import load_dotenv
 from models_architectures.utils import load_model_safely
 
-class Resnet_18_Multilabel(torch.nn.Module) :
+class Resnet_18_Multilabel(torch.nn.Module):
+    """
+    ResNet-18 based model for multi-label classification.
+
+    The standard fully connected layer is replaced to output logits for multiple labels.
+
+    Args:
+        num_classes (int): The number of labels to predict. Default is 6.
+        weights (torchvision.models.WeightsEnum or None): Pre-trained weights to use. Default is ResNet18_Weights.DEFAULT.
+    """
     def __init__(self, num_classes=6, weights=ResNet18_Weights.DEFAULT):
         super(Resnet_18_Multilabel, self).__init__()
         self.model = models.resnet18(weights=weights)
-        
-        # Replace the final fully connected layer
+
+        # Replace the final fully connected layer with a new layer matching num_classes
         self.model.fc = nn.Sequential(
             nn.Linear(self.model.fc.in_features, num_classes)
         )
 
     def forward(self, x):
+        """
+        Forward pass through the network.
+
+        Args:
+            x (torch.Tensor): Input image tensor of shape [batch_size, 3, H, W].
+
+        Returns:
+            torch.Tensor: Output logits of shape [batch_size, num_classes].
+        """
         return self.model(x)
 
+
+# Set device globally (GPU if available, otherwise CPU)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def load_model_resnet_18 (path, device = DEVICE) :
-    model = Resnet_18_Multilabel()    
+
+def load_model_resnet_18(path, device=DEVICE):
+    """
+    Loads a trained ResNet-18 multi-label classification model from disk.
+
+    Args:
+        path (str): File path to the saved model weights (.pth file).
+        device (torch.device): Device on which to load the model.
+
+    Returns:
+        Resnet_18_Multilabel: The loaded model in evaluation mode.
+    """
+    model = Resnet_18_Multilabel()
     model = model.to(device)
-    state_dict  = torch.load(path, map_location=DEVICE)
+
+    # Load saved weights
+    state_dict = torch.load(path, map_location=device)
+
+    # Use safe loading to avoid mismatches in state_dict keys
     model = load_model_safely(model, state_dict)
-    model.eval()
+
+    model.eval()  # Set model to evaluation mode
     return model
 
 
 class Resnet_18_Multihead(nn.Module):
+    """
+    ResNet-18 based model for multi-task classification with multiple heads.
+
+    Each head predicts multiple classes independently, useful for scenarios where
+    different tasks (e.g., different medical indicators) share a common feature extractor.
+
+    Args:
+        num_heads (int): Number of independent classification heads (tasks). Default is 6.
+        num_classes_per_head (int): Number of classes each head predicts. Default is 4.
+        weights (torchvision.models.WeightsEnum or None): Pre-trained weights to use. Default is ResNet18_Weights.DEFAULT.
+    """
     def __init__(self, num_heads=6, num_classes_per_head=4, weights=ResNet18_Weights.DEFAULT):
         super(Resnet_18_Multihead, self).__init__()
         self.base_model = models.resnet18(weights=weights)
-        
-        # Save the in_features **before** replacing the FC layer
+
+        # Extract the feature size of the last ResNet layer
         in_features = self.base_model.fc.in_features
-        
-        # Remove the final classification layer
+
+        # Remove the original classification layer to use the ResNet as a feature extractor
         self.base_model.fc = nn.Identity()
-        
-        # Create one classification head per indicator (each with 4 classes)
+
+        # Create multiple classification heads (one per task)
         self.heads = nn.ModuleList([
-            nn.Linear(in_features, num_classes_per_head) 
+            nn.Linear(in_features, num_classes_per_head)
             for _ in range(num_heads)
         ])
 
     def forward(self, x):
-        features = self.base_model(x)  # shape: [batch_size, 512]
-        
-        # Apply each head separately → list of [batch_size, num_classes_per_head]
-        outputs = [head(features) for head in self.heads]
-        
-        # Stack into shape: [batch_size, num_heads, num_classes_per_head]
-        outputs = torch.stack(outputs, dim=1)
-        
+        """
+        Forward pass through the shared ResNet backbone and the multiple heads.
+
+        Args:
+            x (torch.Tensor): Input image tensor of shape [batch_size, 3, H, W].
+
+        Returns:
+            torch.Tensor: Output tensor of shape [batch_size, num_heads, num_classes_per_head],
+                          containing logits for each head.
+        """
+        # Shared feature extraction
+        features = self.base_model(x)  # Shape: [batch_size, 512]
+
+        # Compute outputs for each head and stack them
+        outputs = [head(features) for head in self.heads]  # List of [batch_size, num_classes_per_head]
+
+        outputs = torch.stack(outputs, dim=1)  # Final shape: [batch_size, num_heads, num_classes_per_head]
+
         return outputs
 
 if __name__ == '__main__' :
