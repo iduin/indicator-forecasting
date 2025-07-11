@@ -1,5 +1,6 @@
 # Folders to ignore
-labels/
+labels/**
+!labels/.gitkeep
 
 data/**
 !data/

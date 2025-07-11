@@ -16,7 +16,7 @@ import numpy as np
 from sklearn.preprocessing import MinMaxScaler
 from data_processing.preprocessing import ECDFScaler
 from dotenv import load_dotenv
-from general_utils import load_json_list
+from general_utils import load_json_list, clean_folder
 
 
 def plot_rgb(data, names, pixel_size=256, dpi=100, scaler = None):
@@ -124,16 +124,7 @@ def create_graphs(file_path, base_folder, sheets, nb_graphs_per_thousand = 300, 
     # get all sheet names
 
     if replace :
-        for filename in os.listdir(base_folder):
-            file_path = os.path.join(base_folder, filename)
-            
-            try:
-                if os.path.isfile(file_path) or os.path.islink(file_path):
-                    os.unlink(file_path)  # Remove file or symbolic link
-                elif os.path.isdir(file_path):
-                    shutil.rmtree(file_path)  # Remove directory and its contents
-            except Exception as e:
-                tqdm.write(f'Failed to delete {file_path}. Reason: {e}')
+        clean_folder(base_folder)
 
     # Loop on all the sheets
     for sheet_name in sheets  : #sheet_names[:2]:

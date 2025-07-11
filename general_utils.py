@@ -6,7 +6,7 @@ import re
 
 def clean_folder(folder_path):
     """
-    Deletes all files and subdirectories within the specified folder.
+    Deletes all files and subdirectories except .gitkeep within the specified folder.
 
     Args:
         folder_path (str): The path to the folder to be cleaned.
@@ -19,9 +19,11 @@ def clean_folder(folder_path):
         raise ValueError(f"{folder_path} is not a valid directory")
 
     for item in os.listdir(folder_path):
+        if item == '.gitkeep':
+            continue
         item_path = os.path.join(folder_path, item)
 
-        try:
+        try:            
             if os.path.isfile(item_path) or os.path.islink(item_path):
                 os.remove(item_path)  # Remove files or symbolic links
             elif os.path.isdir(item_path):
