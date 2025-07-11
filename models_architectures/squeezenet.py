@@ -12,7 +12,7 @@ from models_architectures.utils import load_model_safely
 class SqueezeNet_Multilabel(nn.Module):
     def __init__(self, num_classes=6, weights=SqueezeNet1_1_Weights.DEFAULT):
         super(SqueezeNet_Multilabel, self).__init__()
-        self.model = models.squeezenet1_1(pretrained=True)
+        self.model = models.squeezenet1_1(weights=weights)
         
         # Replace the final fully connected layer
         self.model.classifier = nn.Sequential(

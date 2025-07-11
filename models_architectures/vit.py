@@ -266,35 +266,6 @@ def load_model_VIT(path, device=DEVICE):
     return model
 
 
-'''def load_model_VIT (path, 
-              device = DEVICE,
-              num_transformer_layers=8,
-              embed_dim=64,
-              feed_forward_dim=64 * 2,
-              num_heads=4,
-              patch_size=6,
-              num_patches=42,
-              mlp_head_units=[2048, 1024],
-              num_classes=6) :
-    
-    model = ViTMultiLabelClassifierModel(
-        num_transformer_layers=num_transformer_layers,
-        embed_dim=embed_dim,
-        feed_forward_dim=feed_forward_dim,
-        num_heads=num_heads,
-        patch_size=patch_size,
-        num_patches=num_patches,
-        mlp_head_units=mlp_head_units,
-        num_classes=num_classes,
-        device=device,
-    )    
-    model = model.to(device)
-    state_dict  = torch.load(path, map_location=DEVICE)
-    model = load_model_safely(model, state_dict)
-    model.eval()
-    return model'''
-
-
 if __name__ == '__main__' :
 
     load_dotenv()
