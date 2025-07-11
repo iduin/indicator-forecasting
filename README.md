@@ -36,16 +36,17 @@ To generate training and testing images from financial time series stored in Exc
 
 Example output folder:
 ```
-DATA_DIR/
+data/
 ├── train/
-│   ├── EURUSDm1_0.png
-│   ├── EURUSDm1_0.csv
+│   ├── AAPL_0.png
+│   ├── AAPL_0.csv
 │   └── ...
 ├── test/
-│   ├── EURUSDm5_p2_0.png
+│   ├── AMZN_0.png
+│   ├── AMZN_0.csv
 │   └── ...
 │
-LABELS_DIR/
+labels/
 ├── train_labels.json
 └── test_labels.json
 ```
@@ -53,15 +54,18 @@ LABELS_DIR/
 ### 📝 Required Environment Variables
 
 ```
-DATA_DIR=/path/to/output/folder
-SCALER_DIR=/path/to/scaler/folder
-LABELS_DIR=/pat/to/labels/folder
-INDICS=['indic_1', ...]
-TRAIN_SHEETS=['train_sheet_1', ...]
-TEST_SHEETS=['test_sheet_1', ...]
+DATA_DIR=data
+SCALER_DIR=scalers
+LABELS_DIR=labels
+INDICS=["MACD (12,26,9)", "STOCH-R (14)", "STOCH-RL (15,15,1)", "RSI (14)", "ADX (14)", "CCI (20)"]
+TRAIN_SHEETS=["BIIB", "WMT", "KO", "CAT", "BA", "MMM", "AAPL"]
+TEST_SHEETS=["HON", "AMZN", "NVDA", "BAC", "JPM", "XOM", "TSLA", "NKE"]
 ```
 
 ### ⚙️ Script to create data images
+
+Here is an example of data creation using the unscaled ```Base_Test_2500pts v-Louis.xlsx``` Excel database.
+I strongly recommend using the keywords ```synth``` and/or ```scaled``` in the models/labels/images paths if the data comes from ```Base_Test_2500pts avec Synthétiques.xlsx``` and/or has been scaled (currently, the only implemented scaling option is distribution uniformization). This is important because, during inference, many details are extracted from the model path.
 
 ```python
 from data_processing.create_training_data import create_graphs
@@ -75,19 +79,20 @@ INDICS = load_json_list("INDICS")
 train_sheets = load_json_list("TRAIN_SHEETS")
 test_sheets = load_json_list("TEST_SHEETS")
 
-excel = 'your_excel_db.xlsx'
+excel = 'Base_Test_2500pts v-Louis.xlsx'
 
 # Paths
-train_dir = os.path.join(DATA_DIR, 'your_train_dir')
-test_dir = os.path.join(DATA_DIR, 'your_test_dir')
+train_dir = os.path.join(DATA_DIR, 'train')
+test_dir = os.path.join(DATA_DIR, 'test')
 
-# Here is a script you can run to create your data
-scaler = ECDFScaler()
-scaler.fit_excel_sheets(excel, sheet_names=train_sheets, names = INDICS)
-scaler.save(os.path.join(SCALER_DIR,"your_scaler.pkl"))
+scaler = None
 
-scaler = ECDFScaler.load(os.path.join(SCALER_DIR,"your_scaler.pkl"))
+# Optionnal if you want to uniformize indicator's distibutions
+# scaler = ECDFScaler()
+# scaler.fit_excel_sheets(excel, sheet_names=train_sheets, names = INDICS)
+# scaler.save(os.path.join(SCALER_DIR,"ecdf_scaler.pkl"))
 
+# scaler = ECDFScaler.load(os.path.join(SCALER_DIR,"ecdf_scaler.pkl"))
 
 # Create Training Images
 create_graphs(excel, train_dir, train_sheets, replace=True, indics=INDICS, scaler=scaler)
@@ -111,7 +116,7 @@ import os
 
 LABELS_DIR = os.getenv('LABELS_DIR')
 
-labels_paths = [os.path.join(LABELS_DIR,'your_train_labels.json'),os.path.join(LABELS_DIR,'your_test_labels.json')]
+labels_paths = [os.path.join(LABELS_DIR,'train_labels.json'),os.path.join(LABELS_DIR,'test_labels.json')]
 
 data_folders = [train_sheets, test_sheets]
 
@@ -119,22 +124,32 @@ data_folders = [train_sheets, test_sheets]
 for labels_path, data_folder in zip(labels_paths, data_folders) :
     label_data(data_folder, labels_path, INDICS)
 ```
+
+### ⚠️ Limitations
+
+This project is designed to work with the provided Excel files. If you want to use your own data, make sure to update the column and sheet names everywhere they appear.
+
+Additionally, you will need to add the corresponding information to the ```mean_std.json``` file and the ```scalers``` folder.
+
+For inference, if you add new suffixes, you must modify the ```extract_config``` function in ```model_evaluation/inference_pipeline``` so it can handle them.
+
+
 ---
 
 ## 🏋️ 2. Model Training
 
-This section explains how to train models on your data.
+This section explains how to train models on the data.
 
-Once your data is generated and labeled, you can train models using the provided code.
+Once the data is generated and labeled, you can train models using the provided code.
 
 ### 📝 Required Environment Variables
 
 ```
-DATA_DIR=/path/to/output/folder
-SCALER_DIR=/path/to/scaler/folder
-LABELS_DIR=/pat/to/labels/folder
-MODEL_DIR=/path/to/models/folder
-INDICS=['indic_1', ...]
+DATA_DIR=data
+SCALER_DIR=scalers
+LABELS_DIR=labels
+MODEL_DIR=model
+INDICS=["MACD (12,26,9)", "STOCH-R (14)", "STOCH-RL (15,15,1)", "RSI (14)", "ADX (14)", "CCI (20)"]
 ```
 
 ### ⚙️ Script for model training
@@ -159,12 +174,12 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 DATA_DIR = os.getenv("DATA_DIR")
 
-TRAIN_DIR = os.path.join(DATA_DIR, "your_train_dir")
-TEST_DIR = os.path.join(DATA_DIR, "your_test_dir")
+TRAIN_DIR = os.path.join(DATA_DIR, "train")
+TEST_DIR = os.path.join(DATA_DIR, "test")
 
 LABELS_DIR = os.getenv("LABELS_DIR")
-TRAIN_LABEL_FILE = "your_train_labels.json"
-TEST_LABEL_FILE = "your_test_labels.json"
+TRAIN_LABEL_FILE = "train_labels.json"
+TEST_LABEL_FILE = "test_labels.json"
 TRAIN_LABEL_PATH = os.path.join(LABELS_DIR, TRAIN_LABEL_FILE)
 TEST_LABEL_PATH = os.path.join(LABELS_DIR, TEST_LABEL_FILE)
 
@@ -187,7 +202,7 @@ TRANSFORMER_LAYERS = 8
 MLP_HEAD_UNITS = [2048, 1024]
 
 MODEL_DIR = os.getenv('MODEL_DIR')
-MODEL_NAME = 'VIT_' + str(IMAGE_SIZE) # Change this when you train different models and you want to keep them all
+MODEL_NAME = 'VIT_' + str(IMAGE_SIZE) + "_example" # Change this when you train different models and you want to keep them all
 MODEL_FILE = MODEL_NAME + '.pth'
 MODEL_PATH = os.path.join(MODEL_DIR, MODEL_FILE)
 
@@ -244,7 +259,10 @@ plot_loss(train_losses = history['train_loss'],
           model_name = MODEL_NAME, 
           save_path = LOSS_PATH)
 ```
+### ⚠️ Limitations
 
+This project is designed to work with the provided classifier classes. The custom functions used to load these models might not be compatible with new architectures.
+If you want to define your own models, you will probably need to modify the ```general.py``` and ```utils.py``` files in ```models_architectures/``` accordingly.
 
 ## 🔍 3. Inference Pipeline
 
@@ -253,10 +271,10 @@ This section explains how to use the pre-trained models for inference on new dat
 ### 📝 Required Environment Variables
 
 ```
-SCALER_DIR=/path/to/scaler_directory
-MODEL_DIR=/path/to/saved_models
+SCALER_DIR=scalers
+MODEL_DIR=model
 APIKEY=your_fmp_api_key
-MODELS_NOT_NORM #: keep it that way
+MODELS_NOT_NORM #: keep it that way (or at least do not remove anything)
 ```
 
 ---
@@ -279,7 +297,7 @@ APIKEY = os.getenv('APIKEY')
 
 # List your models
 model_files = [
-    'resnet_multilabel2.pth',  # Add more models as needed
+    'VIT_256_example'  # Add more models as needed
 ]
 
 model_paths = [os.path.join(MODEL_DIR, f) for f in model_files]
