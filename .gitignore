@@ -1,9 +1,9 @@
 # Folders to ignore
 labels/
 
-data/*
+data/**
+!data/
 !data/**/
-data/**/*
 !data/**/.gitkeep
 
 trans/
