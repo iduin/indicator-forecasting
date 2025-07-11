@@ -16,7 +16,6 @@ This guide explains how to prepare your data, train models, and run inference us
 ## 🛠️ 1. Data Creation from Excel Files
 
 To generate training and testing images from financial time series stored in Excel files, follow the steps below.
-
 ### 📈 How It Works:
 
 - Reads time series data from one or multiple Excel sheets.
@@ -51,9 +50,7 @@ LABELS_DIR/
 └── test_labels.json
 ```
 
-### ⚙️ Running the Script
-
-1. Set the following variables in your `.env` file:
+### 📝 Required Environment Variables
 
 ```
 DATA_DIR=/path/to/output/folder
@@ -64,7 +61,7 @@ TRAIN_SHEETS=['train_sheet_1', ...]
 TEST_SHEETS=['test_sheet_1', ...]
 ```
 
-2. Here is a script you can run to create data:
+### ⚙️ Script to create data images
 
 ```python
 from data_processing.create_training_data import create_graphs
@@ -105,7 +102,7 @@ create_graphs(file_name, test_dir, test_sheets, replace=True, test=True, indics=
 - Image dimensions (`graph_size`)
 
 
-3. Now we have to put label on the data:
+### ⚙️ Script to label created data
 
 ```python
 from data_processing.dataset import label_data
@@ -124,21 +121,23 @@ for labels_path, data_folder in zip(labels_paths, data_folders) :
 ```
 ---
 
-👉 Once the data is created, you can proceed to model training as described in the next section.
-
----
-
 ## 🏋️ 2. Model Training
+
+This section explains how to train models on your data.
 
 Once your data is generated and labeled, you can train models using the provided code.
 
-1. Set the following variables in your `.env` file adding to the previous ones :
+### 📝 Required Environment Variables
 
 ```
+DATA_DIR=/path/to/output/folder
+SCALER_DIR=/path/to/scaler/folder
+LABELS_DIR=/pat/to/labels/folder
 MODEL_DIR=/path/to/models/folder
+INDICS=['indic_1', ...]
 ```
 
-Here is a full example script to train a model:
+### ⚙️ Script for model training
 
 ```python
 from dotenv import load_dotenv
@@ -245,3 +244,76 @@ plot_loss(train_losses = history['train_loss'],
           model_name = MODEL_NAME, 
           save_path = LOSS_PATH)
 ```
+
+
+## 🔍 3. Inference Pipeline
+
+This section explains how to use the pre-trained models for inference on new data.
+
+### 📝 Required Environment Variables
+
+```
+SCALER_DIR=/path/to/scaler_directory
+MODEL_DIR=/path/to/saved_models
+APIKEY=your_fmp_api_key
+MODELS_NOT_NORM #: keep it that way
+```
+
+---
+
+### ⚙️ Script to run inference on new data
+
+```python
+import os
+from external.tcopil2025.fmpapi import get_fmp_data
+from model_evaluation.inference import inference_pipeline
+from general_utils import load_json_list
+from dotenv import load_dotenv
+
+# Load environment
+load_dotenv()
+
+MODEL_DIR = os.getenv('MODEL_DIR')
+SCALER_DIR = os.getenv('SCALER_DIR')
+APIKEY = os.getenv('APIKEY')
+
+# List your models
+model_files = [
+    'resnet_multilabel2.pth',  # Add more models as needed
+]
+
+model_paths = [os.path.join(MODEL_DIR, f) for f in model_files]
+
+# Load exceptions for models that don't require normalization
+model_paths_not_normalized = load_json_list("MODELS_NOT_NORM")
+
+# Fetch financial data (FMP API)
+symbol = "AAPL"
+interval = "30min"
+data = get_fmp_data(symbol=symbol, interval=interval, APIKEY=APIKEY)
+
+# Run inference pipeline
+results_df, history_df = inference_pipeline(
+    model_paths=model_paths,
+    data=data,
+    n_avg=9,
+    model_paths_not_normalized=model_paths_not_normalized
+)
+
+print(results_df)
+```
+
+---
+
+### 📊 Outputs
+
+- `results_df` : DataFrame containing predictions per model and per date
+- `history_df` : The historical data with computed indicators
+
+---
+
+✅ **Notes:**
+
+- The function `prepare_augmented_df` creates multiple versions of the input data by sampling different windows, which improves prediction stability.
+- The models are automatically scaled and normalized (if required) based on their filenames and settings.
+- Supported model architectures include **ResNet**, **Vision Transformer (ViT)**, **SqueezeNet**, or any custom model saved using the provided training code.
