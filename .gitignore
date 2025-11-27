@@ -19,6 +19,7 @@ __pycache__/
 # Poetry config files
 poetry.lock
 pyproject.toml
+.env
 
 # Jupyter notebooks
 notebook.ipynb
